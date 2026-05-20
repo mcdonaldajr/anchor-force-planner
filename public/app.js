@@ -256,6 +256,48 @@ function calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, hor
   };
 }
 
+function anchorMarginAtHighWaterLoad(input, depthLw, horizontalLoad) {
+  const highWaterDepth = depthLw + input.hwHeight;
+  const highWaterVerticalDrop = highWaterDepth + input.bowHeight;
+  const chainDeployed = Math.min(input.rodeLength, input.chainLength);
+  const ropeDeployed = Math.max(0, input.rodeLength - input.chainLength);
+  const highWaterCatenary = calculateCatenary(input, highWaterVerticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
+  const holdingFactor = anchorAngleHoldingFactor(highWaterCatenary.anchorAngle);
+
+  return input.anchorUhc * holdingFactor - horizontalLoad;
+}
+
+function calculateWindDragLimit(input, depthLw) {
+  const tidalForce = calculateTidalForce(input);
+  const windForceNow = (1 / 500) * input.loa * input.loa * input.windSpeed * input.windSpeed;
+
+  if (anchorMarginAtHighWaterLoad(input, depthLw, tidalForce) <= 0) {
+    return {
+      maxWindForceBeforeDrag: 0,
+      maxWindSpeedBeforeDrag: 0,
+      windForceMarginBeforeDrag: -windForceNow
+    };
+  }
+
+  let low = 0;
+  let high = Math.max(50, windForceNow, input.anchorUhc);
+  while (anchorMarginAtHighWaterLoad(input, depthLw, tidalForce + high) > 0 && high < 100000) {
+    high *= 2;
+  }
+
+  for (let index = 0; index < 48; index += 1) {
+    const mid = (low + high) / 2;
+    if (anchorMarginAtHighWaterLoad(input, depthLw, tidalForce + mid) > 0) low = mid;
+    else high = mid;
+  }
+
+  return {
+    maxWindForceBeforeDrag: low,
+    maxWindSpeedBeforeDrag: Math.sqrt((low * 500) / Math.max(0.1, input.loa * input.loa)),
+    windForceMarginBeforeDrag: low - windForceNow
+  };
+}
+
 function timeMinutes(id) {
   const [hours, minutes] = (document.getElementById(id).value || "00:00").split(":").map(Number);
   return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
@@ -284,6 +326,7 @@ function calculateForDepth(input, depthLw) {
   const anchorHoldingFactor = anchorAngleHoldingFactor(highWaterAnchorAngle);
   const effectiveAnchorHolding = input.anchorUhc * anchorHoldingFactor;
   const anchorHoldingMargin = effectiveAnchorHolding - horizontalLoad;
+  const windDragLimit = calculateWindDragLimit(input, depthLw);
   const shortfall = Math.max(0, rodeLength - totalRode);
   const lowWaterClearance = lowWaterDepth - input.draft;
   const keelClearance = currentDepth - input.draft;
@@ -312,6 +355,7 @@ function calculateForDepth(input, depthLw) {
     anchorHoldingFactor,
     effectiveAnchorHolding,
     anchorHoldingMargin,
+    ...windDragLimit,
     liftWeight: catenary.liftWeight,
     windForce,
     tidalForce,
@@ -544,6 +588,7 @@ function updateSummary(result) {
   document.getElementById("ropeSeabed").textContent = fmt(result.ropeOnSeabed, 1, " m");
   document.getElementById("chainSeabed").textContent = fmt(result.chainOnSeabed, 1, " m");
   document.getElementById("anchorMargin").textContent = fmt(result.anchorHoldingMargin, 0, " kgf");
+  document.getElementById("windDragLimit").textContent = `${fmt(result.maxWindSpeedBeforeDrag, 0, " kn")} / ${fmt(result.maxWindForceBeforeDrag, 0, " kgf")}`;
 
   const status = statusText(result);
   const banner = document.getElementById("statusBanner");
