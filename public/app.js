@@ -271,26 +271,27 @@ function calculateIdealRode(input = currentInputs()) {
   const verticalDrop = Math.max(0.1, hwDepth + input.bowHeight);
   const totalRode = input.chainLength + input.ropeLength;
   const wind = input.windSpeed;
+  const windForce = (1 / 500) * input.loa * input.loa * wind * wind;
+  const tidalForce = calculateTidalForce(input);
+  const horizontalLoad = windForce + tidalForce;
+  const equivalentWind = Math.sqrt((horizontalLoad * 500) / Math.max(0.1, input.loa * input.loa));
   let desired = 3;
 
-  if (wind > 15) desired = 4;
-  if (wind > 25) desired = 5;
-  if (wind > 35) desired = 6;
-  if (wind > 45) desired = 7;
-  if (wind > 55) desired = 8;
-  if (wind > 65) desired = 9;
+  if (equivalentWind > 15) desired = 4;
+  if (equivalentWind > 25) desired = 5;
+  if (equivalentWind > 35) desired = 6;
+  if (equivalentWind > 45) desired = 7;
+  if (equivalentWind > 55) desired = 8;
+  if (equivalentWind > 65) desired = 9;
   if (input.hwHeight >= 4 || hwDepth >= 10) desired += 0.5;
-  if (input.tidalStream >= 1) desired += 0.5;
-  if (input.tidalStream >= 2) desired += 0.5;
-  if (input.tidalStream >= 3) desired += 0.5;
 
   const idealLength = desired * verticalDrop;
   const recommended = round(Math.min(idealLength, totalRode), 0);
   const result = calculateForDepth({ ...input, rodeLength: recommended, tideHeight: input.hwHeight }, depthLw);
   const notes = [];
 
-  notes.push(`${fmt(wind, 0, " kn")} wind sets the HW recommendation at ${fmt(desired, 1, ":1")}.`);
-  if (input.tidalStream > 0) notes.push(`${fmt(input.tidalStream, 1, " kn")} tidal stream is included in that target.`);
+  notes.push(`${fmt(wind, 0, " kn")} wind plus ${fmt(input.tidalStream, 1, " kn")} tidal stream gives an equivalent load of about ${fmt(equivalentWind, 0, " kn")} wind.`);
+  notes.push(`That sets the HW recommendation at ${fmt(desired, 1, ":1")}.`);
   if (idealLength > totalRode) notes.push(`Available rode caps this at ${fmt(totalRode, 1, " m")}.`);
   if (result.ropeOnSeabed > 0 && input.ropeLength > 0) {
     notes.push(`This may put about ${fmt(result.ropeOnSeabed, 1, " m")} of rope on the seabed at low water.`);
