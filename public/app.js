@@ -5,13 +5,12 @@ const defaults = {
   draft: 1.8,
   minClearance: 0.5,
   depthLw: 5,
-  sounderLw: 3.8,
+  echoBelowKeel: 6.2,
   tideHeight: 3,
   hwHeight: 4,
   lwHeight: 1,
   rodeLength: 40,
   bowHeight: 1,
-  sounderOffset: 1.2,
   chainLength: 50,
   ropeLength: 50,
   chainWeight: 1.4,
@@ -27,8 +26,7 @@ const timeDefaults = {
 
 const ids = Object.keys(defaults);
 const allInputIds = [...ids, ...Object.keys(timeDefaults)];
-let lastDepthSource = "depth";
-let syncingDepthFields = false;
+let depthSource = "chart";
 let idealRode = null;
 let diagramMode = "now";
 
@@ -52,6 +50,19 @@ function fmt(value, digits = 1, suffix = "") {
 
 function currentInputs() {
   return Object.fromEntries(ids.map((id) => [id, number(id)]));
+}
+
+function chartDepthNow(input) {
+  return input.depthLw + input.tideHeight;
+}
+
+function sounderDepthNow(input) {
+  return input.echoBelowKeel + input.draft;
+}
+
+function chartedDepthFor(input, tideHeight = input.tideHeight) {
+  if (depthSource === "sounder") return Math.max(0, sounderDepthNow(input) - tideHeight);
+  return Math.max(0, input.depthLw);
 }
 
 function calculateTidalForce(input) {
@@ -222,7 +233,6 @@ function calculateForDepth(input, depthLw) {
   return {
     chartedDepth: depthLw,
     depthLw: lowWaterDepth,
-    sounderLw: lowWaterDepth - input.sounderOffset,
     depthHw: currentDepth,
     verticalDrop,
     horizontalReach: catenary.horizontalReach,
@@ -256,17 +266,17 @@ function calculateForDepth(input, depthLw) {
 
 function calculate() {
   const input = currentInputs();
-  return calculateForDepth(input, Math.max(0, input.depthLw));
+  return calculateForDepth(input, chartedDepthFor(input));
 }
 
 function calculateDiagramResult(mode = diagramMode) {
   const input = currentInputs();
   const tideHeight = mode === "lw" ? input.lwHeight : mode === "hw" ? input.hwHeight : input.tideHeight;
-  return calculateForDepth({ ...input, tideHeight }, Math.max(0, input.depthLw));
+  return calculateForDepth({ ...input, tideHeight }, chartedDepthFor(input));
 }
 
 function calculateIdealRode(input = currentInputs()) {
-  const depthLw = Math.max(0, input.depthLw);
+  const depthLw = chartedDepthFor(input);
   const hwDepth = depthLw + input.hwHeight;
   const verticalDrop = Math.max(0.1, hwDepth + input.bowHeight);
   const totalRode = input.chainLength + input.ropeLength;
@@ -322,18 +332,6 @@ function clearIdealRodeRecommendation() {
   panel.querySelector("p").textContent = "Use the button to calculate a recommendation from the conditions now and boat settings.";
 }
 
-function syncDepth(source) {
-  if (syncingDepthFields) return;
-  syncingDepthFields = true;
-  const offset = number("sounderOffset");
-  if (source === "depth") {
-    document.getElementById("sounderLw").value = round(number("depthLw") + number("lwHeight") - offset, 1);
-  } else {
-    document.getElementById("depthLw").value = round(number("sounderLw") + offset - number("lwHeight"), 1);
-  }
-  syncingDepthFields = false;
-}
-
 function formatClock(date) {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
@@ -379,8 +377,9 @@ function currentTide() {
   const height = rising
     ? before.height + (after.height - before.height) * fraction
     : before.height - (before.height - after.height) * fraction;
-  const currentDepth = input.depthLw + height;
-  const lowWaterDepth = input.depthLw + input.lwHeight;
+  const chartedDepth = chartedDepthFor({ ...input, tideHeight: height }, height);
+  const currentDepth = chartedDepth + height;
+  const lowWaterDepth = chartedDepth + input.lwHeight;
   const keelClearance = currentDepth - input.draft;
   const lowWaterClearance = lowWaterDepth - input.draft;
   return {
@@ -471,6 +470,17 @@ function updateSummary(result) {
   const banner = document.getElementById("statusBanner");
   banner.className = `statusBanner ${status.level === "good" ? "" : status.level}`;
   banner.textContent = status.text;
+}
+
+function updateDepthComparison() {
+  const input = currentInputs();
+  const chartDepth = chartDepthNow(input);
+  const measuredDepth = sounderDepthNow(input);
+  const difference = measuredDepth - chartDepth;
+
+  document.getElementById("chartDepthNow").textContent = fmt(chartDepth, 1, " m");
+  document.getElementById("sounderDepthNow").textContent = fmt(measuredDepth, 1, " m");
+  document.getElementById("depthDifference").textContent = `${difference >= 0 ? "+" : ""}${fmt(difference, 1, " m")}`;
 }
 
 function svg(tag, attrs = {}, children = []) {
@@ -665,6 +675,7 @@ function renderForceChart() {
 
 function renderAll() {
   updateTideSummary();
+  updateDepthComparison();
   const result = calculate();
   updateSummary(result);
   renderDiagram(calculateDiagramResult(), diagramMode);
@@ -690,17 +701,18 @@ document.querySelectorAll(".diagramTab").forEach((button) => {
   });
 });
 
+document.querySelectorAll(".depthSourceButton").forEach((button) => {
+  button.addEventListener("click", () => {
+    depthSource = button.dataset.depthSource;
+    document.querySelectorAll(".depthSourceButton").forEach((item) => item.classList.toggle("active", item === button));
+    idealRode = null;
+    clearIdealRodeRecommendation();
+    renderAll();
+  });
+});
+
 allInputIds.forEach((id) => {
   document.getElementById(id).addEventListener("input", () => {
-    if (id === "depthLw") {
-      lastDepthSource = "depth";
-      syncDepth("depth");
-    }
-    if (id === "sounderLw") {
-      lastDepthSource = "sounder";
-      syncDepth("sounder");
-    }
-    if (id === "sounderOffset" || id === "lwHeight") syncDepth(lastDepthSource);
     idealRode = null;
     clearIdealRodeRecommendation();
     renderAll();
@@ -726,10 +738,10 @@ document.getElementById("resetDefaults").addEventListener("click", () => {
   Object.entries(timeDefaults).forEach(([id, value]) => {
     document.getElementById(id).value = value;
   });
-  lastDepthSource = "depth";
+  depthSource = "chart";
+  document.querySelectorAll(".depthSourceButton").forEach((item) => item.classList.toggle("active", item.dataset.depthSource === depthSource));
   idealRode = null;
   clearIdealRodeRecommendation();
-  syncDepth("depth");
   renderAll();
 });
 
@@ -741,6 +753,5 @@ document.getElementById("stopServer").addEventListener("click", async () => {
   }
 });
 
-syncDepth("depth");
 renderAll();
 setInterval(renderAll, 60 * 1000);

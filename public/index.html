@@ -53,8 +53,8 @@
               <label>Charted depth
                 <span class="inputWithUnit"><input id="depthLw" type="number" value="5" min="0" max="40" step="0.1"><span>m</span></span>
               </label>
-              <label>Depth sounder reading at LW
-                <span class="inputWithUnit"><input id="sounderLw" type="number" value="3.8" min="-5" max="40" step="0.1"><span>m</span></span>
+              <label>Echo below keel now
+                <span class="inputWithUnit"><input id="echoBelowKeel" type="number" value="6.2" min="0" max="80" step="0.1"><span>m</span></span>
               </label>
               <label>Tide rise now
                 <span class="inputWithUnit"><input id="tideHeight" type="text" value="3.0" readonly><span>m</span></span>
@@ -63,6 +63,17 @@
                 <span class="inputWithUnit"><input id="rodeLength" type="number" value="40" min="1" max="300" step="1"><span>m</span></span>
               </label>
             </div>
+            <section class="depthSourcePanel" aria-label="Depth source">
+              <div class="depthSourceButtons" role="group" aria-label="Depth source used for calculations">
+                <button class="depthSourceButton active" type="button" data-depth-source="chart">Use chart + tide</button>
+                <button class="depthSourceButton" type="button" data-depth-source="sounder">Use echo sounder</button>
+              </div>
+              <div class="depthCompare">
+                <div><span>Chart + tide depth now</span><strong id="chartDepthNow">-</strong></div>
+                <div><span>Measured depth now</span><strong id="sounderDepthNow">-</strong></div>
+                <div><span>Difference</span><strong id="depthDifference">-</strong></div>
+              </div>
+            </section>
             <div class="recommendationActions">
               <button id="calculateIdealRode" type="button">Calculate ideal rode</button>
             </div>
@@ -153,9 +164,6 @@
             <label>Height of bow
               <span class="inputWithUnit"><input id="bowHeight" type="number" value="1" min="0" max="5" step="0.1"><span>m</span></span>
             </label>
-            <label>Sounder offset
-              <span class="inputWithUnit"><input id="sounderOffset" type="number" value="1.2" min="-5" max="5" step="0.1"><span>m</span></span>
-            </label>
             <label>Chain length
               <span class="inputWithUnit"><input id="chainLength" type="number" value="50" min="0" max="200" step="1"><span>m</span></span>
             </label>
@@ -229,6 +237,7 @@
         <section class="formulaList">
           <div><strong>Wind force</strong><code>(1 / 500) * LOA^2 * windSpeed^2</code></div>
           <div><strong>Depth now</strong><code>chartedDepth + tideRiseNow</code></div>
+          <div><strong>Measured depth now</strong><code>echoBelowKeel + draft</code></div>
           <div><strong>Keel clearance</strong><code>selectedDepth - draft</code></div>
           <div><strong>Tidal-stream load</strong><code>13.2 * LOA * draft * underwaterDragFactor * tidalStream^2</code></div>
           <div><strong>HW-set rode</strong><code>chosenRodeLength</code></div>

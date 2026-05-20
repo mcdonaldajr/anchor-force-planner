@@ -250,6 +250,60 @@ input[readonly] {
   font-size: 12px;
 }
 
+.depthSourcePanel {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.depthSourceButtons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--line);
+}
+
+.depthSourceButton {
+  border-radius: 0;
+  background: #fff;
+  color: var(--muted);
+}
+
+.depthSourceButton.active {
+  background: var(--water);
+  color: #fff;
+}
+
+.depthCompare {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--line);
+}
+
+.depthCompare div {
+  background: #fff;
+  padding: 9px 10px;
+}
+
+.depthCompare span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.depthCompare strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 18px;
+}
+
 .recommendationActions {
   display: flex;
   margin-top: 12px;
@@ -521,6 +575,7 @@ code {
 
   .inputGrid,
   .settingsGrid,
+  .depthCompare,
   .summary,
   .tideSummary,
   .formulaList div {
