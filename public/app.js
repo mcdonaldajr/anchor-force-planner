@@ -320,12 +320,15 @@ function renderDiagram(result) {
   const anchorY = seabedY;
   const lowWaterTouchX = Math.max(bowX, anchorX - result.amountOnSeabed * scale);
   const boatLengthPx = Math.max(72, Math.min(150, input.loa * scale));
-  const boatTopY = bowPointY + Math.max(10, input.bowHeight * scale * 0.25);
-  const boatBottomY = Math.min(waterY + 18, bowPointY + 38);
+  const bowHeightPx = input.bowHeight * scale;
+  const draftPx = input.draft * scale;
+  const sternDeckY = waterY - bowHeightPx * 0.35;
+  const bowDeckY = waterY - bowHeightPx;
+  const hullBottomY = waterY + draftPx * 0.16;
   const boatSternX = bowX - boatLengthPx;
   const keelCenterX = boatSternX + boatLengthPx * 0.52;
-  const keelTopY = Math.max(waterY + 6, boatBottomY - 2);
-  const keelBottomY = waterY + input.draft * scale;
+  const keelTopY = hullBottomY - 1;
+  const keelBottomY = waterY + draftPx;
   const keelHalfWidth = Math.max(8, Math.min(20, boatLengthPx * 0.11));
   const keelHitsBottom = keelBottomY >= seabedY;
   const boatTotalHeight = input.bowHeight + input.draft;
@@ -353,7 +356,7 @@ function renderDiagram(result) {
     svg("text", { x: 18, y: Math.max(18, waterY - 10), fill: "#5f6c76", "font-size": 13 }, [document.createTextNode(`Current depth ${fmt(result.depthHw, 1, " m")}`)]),
     svg("text", { x: 18, y: lowWaterY - 8, fill: "#4f7f99", "font-size": 12 }, [document.createTextNode(`LW depth ${fmt(result.depthLw, 1, " m")}`)]),
     svg("text", { x: bowX - 26, y: (waterY + seabedY) / 2, fill: "#1f6f8b", "font-size": 12, transform: `rotate(-90 ${bowX - 26} ${(waterY + seabedY) / 2})` }, [document.createTextNode(fmt(result.depthHw, 1, " m"))]),
-    svg("path", { d: `M${boatSternX} ${boatTopY} L${bowX} ${boatTopY} L${bowX + 22} ${bowPointY} L${bowX - 10} ${boatBottomY} L${boatSternX + 22} ${boatBottomY} Z`, fill: "#ffffff", stroke: "#17212b", "stroke-width": 2 }),
+    svg("path", { d: `M${boatSternX} ${sternDeckY} L${bowX - 6} ${bowDeckY} L${bowX + 22} ${bowPointY} L${bowX - 10} ${waterY + draftPx * 0.08} L${boatSternX + 22} ${hullBottomY} Z`, fill: "#ffffff", stroke: "#17212b", "stroke-width": 2 }),
     svg("path", { d: `M${keelCenterX - keelHalfWidth} ${keelTopY} L${keelCenterX + keelHalfWidth} ${keelTopY} L${keelCenterX + keelHalfWidth * 0.55} ${keelBottomY} L${keelCenterX - keelHalfWidth * 0.55} ${keelBottomY} Z`, fill: keelHitsBottom ? "#d76c6c" : "#6f7f8a", stroke: "#17212b", "stroke-width": 2, opacity: 0.95 }),
     svg("line", { x1: keelCenterX + keelHalfWidth + 12, y1: waterY, x2: keelCenterX + keelHalfWidth + 12, y2: keelBottomY, stroke: keelHitsBottom ? "#b44444" : "#5f6c76", "stroke-width": 2 }),
     svg("line", { x1: keelCenterX + keelHalfWidth + 6, y1: waterY, x2: keelCenterX + keelHalfWidth + 18, y2: waterY, stroke: keelHitsBottom ? "#b44444" : "#5f6c76", "stroke-width": 2 }),
