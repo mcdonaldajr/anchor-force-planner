@@ -27,6 +27,7 @@ const allInputIds = [...ids, ...Object.keys(timeDefaults)];
 let lastDepthSource = "depth";
 let syncingDepthFields = false;
 let idealScope = null;
+let diagramMode = "now";
 
 function number(id) {
   const value = Number(document.getElementById(id).value);
@@ -90,6 +91,12 @@ function calculateForDepth(input, depthLw) {
 function calculate() {
   const input = currentInputs();
   return calculateForDepth(input, Math.max(0, input.depthLw));
+}
+
+function calculateDiagramResult(mode = diagramMode) {
+  const input = currentInputs();
+  const tideHeight = mode === "lw" ? input.lwHeight : mode === "hw" ? input.hwHeight : input.tideHeight;
+  return calculateForDepth({ ...input, tideHeight }, Math.max(0, input.depthLw));
 }
 
 function calculateIdealScope(input = currentInputs()) {
@@ -300,10 +307,11 @@ function svg(tag, attrs = {}, children = []) {
   return el;
 }
 
-function renderDiagram(result) {
+function renderDiagram(result, mode = diagramMode) {
   const input = currentInputs();
   const target = document.getElementById("rodeDiagram");
   target.innerHTML = "";
+  const modeLabel = mode === "lw" ? "LW" : mode === "hw" ? "HW" : "Now";
 
   const width = 860;
   const height = 300;
@@ -353,7 +361,7 @@ function renderDiagram(result) {
     svg("line", { x1: bowX - 36, y1: waterY, x2: bowX - 36, y2: seabedY, stroke: "#1f6f8b", "stroke-width": 2 }),
     svg("line", { x1: bowX - 43, y1: waterY, x2: bowX - 29, y2: waterY, stroke: "#1f6f8b", "stroke-width": 2 }),
     svg("line", { x1: bowX - 43, y1: seabedY, x2: bowX - 29, y2: seabedY, stroke: "#1f6f8b", "stroke-width": 2 }),
-    svg("text", { x: 18, y: Math.max(18, waterY - 10), fill: "#5f6c76", "font-size": 13 }, [document.createTextNode(`Current depth ${fmt(result.depthHw, 1, " m")}`)]),
+    svg("text", { x: 18, y: Math.max(18, waterY - 10), fill: "#5f6c76", "font-size": 13 }, [document.createTextNode(`${modeLabel} depth ${fmt(result.depthHw, 1, " m")}`)]),
     svg("text", { x: 18, y: lowWaterY - 8, fill: "#4f7f99", "font-size": 12 }, [document.createTextNode(`LW depth ${fmt(result.depthLw, 1, " m")}`)]),
     svg("text", { x: bowX - 26, y: (waterY + seabedY) / 2, fill: "#1f6f8b", "font-size": 12, transform: `rotate(-90 ${bowX - 26} ${(waterY + seabedY) / 2})` }, [document.createTextNode(fmt(result.depthHw, 1, " m"))]),
     svg("path", { d: `M${boatSternX} ${sternDeckY} L${bowX - 6} ${bowDeckY} L${bowX + 22} ${bowPointY} L${bowX - 10} ${waterY + draftPx * 0.08} L${boatSternX + 22} ${hullBottomY} Z`, fill: "#ffffff", stroke: "#17212b", "stroke-width": 2 }),
@@ -367,7 +375,7 @@ function renderDiagram(result) {
     ...(hasRopeOnSeabed ? [svg("line", { x1: ropeOnSeabedStartX, y1: seabedY + 4, x2: chainOnSeabedStartX, y2: seabedY + 4, stroke: "#c77a16", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "10 7", opacity: 0.9 })] : []),
     svg("line", { x1: chainOnSeabedStartX, y1: seabedY + 4, x2: anchorX, y2: seabedY + 4, stroke: "#2f3b44", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "3 7", opacity: 0.9 }),
     svg("path", { d: `M${anchorX - 20} ${anchorY - 18} L${anchorX} ${anchorY} L${anchorX + 24} ${anchorY - 12} M${anchorX} ${anchorY} L${anchorX + 2} ${anchorY - 34}`, stroke: "#17212b", "stroke-width": 5, fill: "none", "stroke-linecap": "round" }),
-    svg("text", { x: Math.max(160, bowX + 28), y: waterY - 28, fill: "#17212b", "font-size": 13, "font-weight": 700 }, [document.createTextNode(`Bow ${fmt(input.bowHeight, 1, " m")} + draft ${fmt(input.draft, 1, " m")}`)]),
+    svg("text", { x: Math.max(160, bowX + 28), y: waterY - 28, fill: "#17212b", "font-size": 13, "font-weight": 700 }, [document.createTextNode(`${modeLabel}: bow ${fmt(input.bowHeight, 1, " m")} + draft ${fmt(input.draft, 1, " m")}`)]),
     svg("text", { x: keelCenterX + keelHalfWidth + 20, y: Math.min(keelBottomY + 16, seabedY - 8), fill: keelHitsBottom ? "#8f2222" : "#17212b", "font-size": 12 }, [document.createTextNode(`draft ${fmt(input.draft, 1, " m")}`)]),
     svg("text", { x: Math.max(160, bowX + 28), y: waterY - 12, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(`boat height approx ${fmt(boatTotalHeight, 1, " m")}`)]),
     svg("text", { x: labelX, y: rodeMidY, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`Rode ${fmt(result.rodeLength, 1, " m")} at ${fmt(input.scopeRatio, 1, ":1")}`)]),
@@ -467,7 +475,7 @@ function renderAll() {
   updateTideSummary();
   const result = calculate();
   updateSummary(result);
-  renderDiagram(result);
+  renderDiagram(calculateDiagramResult(), diagramMode);
   renderScopeTable(result);
   renderForceTable();
   renderRodeTable();
@@ -479,6 +487,14 @@ document.querySelectorAll(".tabButton").forEach((button) => {
     const tab = button.dataset.tab;
     document.querySelectorAll(".tabButton").forEach((item) => item.classList.toggle("active", item === button));
     document.querySelectorAll(".tabPanel").forEach((panel) => panel.classList.toggle("active", panel.id === `${tab}Panel`));
+  });
+});
+
+document.querySelectorAll(".diagramTab").forEach((button) => {
+  button.addEventListener("click", () => {
+    diagramMode = button.dataset.diagram;
+    document.querySelectorAll(".diagramTab").forEach((item) => item.classList.toggle("active", item === button));
+    renderDiagram(calculateDiagramResult(), diagramMode);
   });
 });
 

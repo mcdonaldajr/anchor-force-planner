@@ -388,6 +388,30 @@ input[readonly] {
   padding: 8px;
 }
 
+.diagramTabs {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  min-width: 210px;
+  margin: 0 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--line);
+}
+
+.diagramTab {
+  border-radius: 0;
+  background: #fff;
+  color: var(--muted);
+  padding: 7px 12px;
+}
+
+.diagramTab.active {
+  background: var(--water);
+  color: #fff;
+}
+
 #rodeDiagram,
 #forceChart {
   display: block;
