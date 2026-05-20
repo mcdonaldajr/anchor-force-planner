@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Anchor Force Planner icon">
+  <rect width="256" height="256" rx="36" fill="#1f6f8b"/>
+  <path d="M24 147h208v50H24z" fill="#d7c4a3"/>
+  <path d="M24 94h208v53H24z" fill="#dbeef7"/>
+  <path d="M25 94h206" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  <path d="M60 75h56l-15 24H73z" fill="#ffffff" stroke="#17212b" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M92 94c42 3 73 27 101 54" fill="none" stroke="#17212b" stroke-width="10" stroke-linecap="round" stroke-dasharray="2 16"/>
+  <path d="M116 163h71" fill="none" stroke="#17212b" stroke-width="10" stroke-linecap="round" stroke-dasharray="2 16"/>
+  <path d="M192 146l20 18 22-12M212 164l-2-38" fill="none" stroke="#17212b" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Anchor Force Planner</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Anchor Force Planner</h1>
+        <p>Scope, load, and rode checks from Anchor Force.xlsx</p>
+      </div>
+      <div class="topActions">
+        <button id="resetDefaults" type="button">Reset defaults</button>
+        <button id="stopServer" class="dangerButton" type="button">Stop server</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="safetyNotice" aria-label="Safety notice">
+        <strong>Planning aid only.</strong>
+        <span>Calculations mirror the workbook model and have not been independently validated for anchoring decisions. Use seamanship, forecast, seabed, swinging room, and manufacturer data.</span>
+      </section>
+
+      <nav class="tabs" aria-label="Planner tabs">
+        <button class="tabButton active" type="button" data-tab="planner">Planner</button>
+        <button class="tabButton" type="button" data-tab="tide">Tide</button>
+        <button class="tabButton" type="button" data-tab="boatSettings">Boat Settings</button>
+        <button class="tabButton" type="button" data-tab="scope">Depth Sweep</button>
+        <button class="tabButton" type="button" data-tab="force">Wind Force</button>
+        <button class="tabButton" type="button" data-tab="formulas">Formulas</button>
+      </nav>
+
+      <section id="plannerPanel" class="tabPanel active">
+        <section class="layoutGrid">
+          <section class="inputPanel" aria-label="Anchor inputs">
+            <div class="panelHeader">
+              <div>
+                <h2>Inputs</h2>
+                <p>Edit the assumptions and the planner recalculates immediately.</p>
+              </div>
+            </div>
+
+            <div class="inputGrid">
+              <label>Wind speed
+                <span class="inputWithUnit"><input id="windSpeed" type="number" value="40" min="0" max="90" step="1"><span>kn</span></span>
+              </label>
+              <label>Charted depth
+                <span class="inputWithUnit"><input id="depthLw" type="number" value="5" min="0" max="40" step="0.1"><span>m</span></span>
+              </label>
+              <label>Depth sounder reading at LW
+                <span class="inputWithUnit"><input id="sounderLw" type="number" value="3.8" min="-5" max="40" step="0.1"><span>m</span></span>
+              </label>
+              <label>Current tide rise
+                <span class="inputWithUnit"><input id="tideHeight" type="number" value="3" min="0" max="12" step="0.1" readonly><span>m</span></span>
+              </label>
+              <label>Max scope
+                <span class="inputWithUnit"><input id="scopeRatio" type="number" value="4" min="1" max="12" step="0.1"><span>:1</span></span>
+              </label>
+            </div>
+            <div class="recommendationActions">
+              <button id="calculateIdealScope" type="button">Calculate ideal scope</button>
+            </div>
+            <section id="scopeRecommendation" class="recommendationPanel" aria-live="polite">
+              <span>Recommended scope</span>
+              <strong>-</strong>
+              <p>Use the button to calculate a recommendation from the current conditions and boat settings.</p>
+              <button id="applyIdealScope" type="button">Apply scope</button>
+            </section>
+          </section>
+
+          <section class="resultsPanel" aria-label="Anchor result summary">
+            <div id="statusBanner" class="statusBanner">-</div>
+            <section class="summary" aria-label="Summary values">
+              <div><span>Wind force</span><strong id="windForce">-</strong></div>
+              <div><span>Rode needed</span><strong id="rodeNeeded">-</strong></div>
+              <div><span>Rode available</span><strong id="rodeAvailable">-</strong></div>
+              <div><span>On seabed at LW</span><strong id="seabedLength">-</strong></div>
+              <div><span>Max lift weight</span><strong id="liftWeight">-</strong></div>
+              <div><span>Rope on seabed</span><strong id="ropeSeabed">-</strong></div>
+            </section>
+
+            <section class="visualPanel" aria-label="Anchor geometry">
+              <svg id="rodeDiagram" viewBox="0 0 860 300" role="img" aria-label="Rode geometry diagram"></svg>
+            </section>
+          </section>
+        </section>
+      </section>
+
+      <section id="tidePanel" class="tabPanel">
+        <div class="panelHeader">
+          <div>
+            <h2>Tide</h2>
+            <p>Enter local tide data for the anchorage. Current rise is estimated with the rule of twelfths.</p>
+          </div>
+        </div>
+        <section class="inputPanel settingsPanel" aria-label="Tide settings">
+          <div class="inputGrid settingsGrid">
+            <label>HW time
+              <span class="inputWithUnit"><input id="hwTime" type="time" value="15:00"><span>local</span></span>
+            </label>
+            <label>LW time
+              <span class="inputWithUnit"><input id="lwTime" type="time" value="09:00"><span>local</span></span>
+            </label>
+            <label>HW height
+              <span class="inputWithUnit"><input id="hwHeight" type="number" value="4" min="-2" max="15" step="0.1"><span>m</span></span>
+            </label>
+            <label>LW height
+              <span class="inputWithUnit"><input id="lwHeight" type="number" value="1" min="-2" max="15" step="0.1"><span>m</span></span>
+            </label>
+          </div>
+        </section>
+        <section id="tideSummary" class="tideSummary" aria-live="polite">
+          <div><span>Current time</span><strong id="currentTimeLabel">-</strong></div>
+          <div><span>Current rise</span><strong id="currentRiseLabel">-</strong></div>
+          <div><span>Current depth</span><strong id="currentDepthLabel">-</strong></div>
+          <div><span>Low-water clearance</span><strong id="lowWaterClearanceLabel">-</strong></div>
+        </section>
+        <section id="tideStatus" class="statusBanner">-</section>
+      </section>
+
+      <section id="boatSettingsPanel" class="tabPanel">
+        <div class="panelHeader">
+          <div>
+            <h2>Boat Settings</h2>
+            <p>Values that normally stay fixed for this boat and its anchor setup.</p>
+          </div>
+        </div>
+        <section class="inputPanel settingsPanel" aria-label="Boat settings">
+          <div class="inputGrid settingsGrid">
+            <label>Boat LOA
+              <span class="inputWithUnit"><input id="loa" type="number" value="10.1" min="2" max="40" step="0.1"><span>m</span></span>
+            </label>
+            <label>Draft
+              <span class="inputWithUnit"><input id="draft" type="number" value="1.8" min="0" max="8" step="0.1"><span>m</span></span>
+            </label>
+            <label>Minimum clearance
+              <span class="inputWithUnit"><input id="minClearance" type="number" value="0.5" min="0" max="5" step="0.1"><span>m</span></span>
+            </label>
+            <label>Height of bow
+              <span class="inputWithUnit"><input id="bowHeight" type="number" value="1" min="0" max="5" step="0.1"><span>m</span></span>
+            </label>
+            <label>Sounder offset
+              <span class="inputWithUnit"><input id="sounderOffset" type="number" value="1.2" min="-5" max="5" step="0.1"><span>m</span></span>
+            </label>
+            <label>Chain length
+              <span class="inputWithUnit"><input id="chainLength" type="number" value="50" min="0" max="200" step="1"><span>m</span></span>
+            </label>
+            <label>Rope length
+              <span class="inputWithUnit"><input id="ropeLength" type="number" value="50" min="0" max="200" step="1"><span>m</span></span>
+            </label>
+            <label>Chain weight
+              <span class="inputWithUnit"><input id="chainWeight" type="number" value="1.4" min="0" max="10" step="0.1"><span>kg/m</span></span>
+            </label>
+            <label>Anchor weight
+              <span class="inputWithUnit"><input id="anchorWeight" type="number" value="15" min="0" max="100" step="1"><span>kg</span></span>
+            </label>
+          </div>
+        </section>
+        <section class="tableWrap narrowTable settingsTable">
+          <table id="rodeTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </section>
+
+      <section id="scopePanel" class="tabPanel">
+        <div class="panelHeader">
+          <div>
+            <h2>Depth Sweep</h2>
+            <p>Lookup rows for how rode length, seabed rode, and lift weight change across possible low-water depths.</p>
+          </div>
+        </div>
+        <section class="tableWrap">
+          <table id="scopeTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </section>
+
+      <section id="forcePanel" class="tabPanel">
+        <div class="panelHeader">
+          <div>
+            <h2>Wind Force</h2>
+            <p>Estimated load from the workbook: force kg = LOA squared times wind squared divided by 500.</p>
+          </div>
+        </div>
+        <section class="forceGrid">
+          <div class="chartPanel">
+            <svg id="forceChart" viewBox="0 0 820 320" role="img" aria-label="Wind force chart"></svg>
+          </div>
+          <section class="tableWrap">
+            <table id="forceTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </section>
+        </section>
+      </section>
+
+      <section id="formulasPanel" class="tabPanel">
+        <div class="panelHeader">
+          <div>
+            <h2>Formulas</h2>
+            <p>The core spreadsheet equations used by this app.</p>
+          </div>
+        </div>
+        <section class="formulaList">
+          <div><strong>Wind force</strong><code>(1 / 500) * LOA^2 * windSpeed^2</code></div>
+          <div><strong>Current depth</strong><code>chartedDepth + currentTideRise</code></div>
+          <div><strong>Rode length</strong><code>(currentDepth + bowHeight) * scopeRatio</code></div>
+          <div><strong>Amount on seabed at LW</strong><code>rodeLength - lowWaterDepth - bowHeight</code></div>
+          <div><strong>Rope on seabed at LW</strong><code>max(amountOnSeabed - chainLength, 0)</code></div>
+          <div><strong>Weight to lift</strong><code>anchorWeight + min(bowHeight + depthAtHW, chainLength) * chainWeight</code></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
