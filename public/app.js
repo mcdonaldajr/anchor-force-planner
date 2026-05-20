@@ -150,27 +150,35 @@ function combinedVerticalRise(input, chainLifted, ropeDeployed, horizontalLoad, 
 
 function calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, horizontalLoad) {
   const maxChainLifted = Math.max(0, chainDeployed);
-  const ropeLength = Math.max(0, ropeDeployed);
+  const maxRopeLifted = Math.max(0, ropeDeployed);
 
   if (horizontalLoad < 1) {
-    if (ropeLength > 0) {
-      const ropeHorizontal = Math.sqrt(Math.max(0, ropeLength ** 2 - verticalDrop ** 2));
+    if (maxRopeLifted > 0) {
+      const chainLifted = Math.min(maxChainLifted, Math.max(0, verticalDrop - maxRopeLifted));
+      const chainOnSeabed = Math.max(0, maxChainLifted - chainLifted);
+      const remainingDrop = Math.max(0, verticalDrop - chainLifted);
+      const ropeLifted = Math.min(maxRopeLifted, remainingDrop);
+      const ropeOnSeabed = Math.max(0, maxRopeLifted - ropeLifted);
+      const ropeHorizontal = Math.sqrt(Math.max(0, ropeLifted ** 2 - remainingDrop ** 2));
       return {
         chainA: Infinity,
         ropeA: Infinity,
-        chainLifted: 0,
-        chainOnSeabed: maxChainLifted,
-        ropeDeployed: ropeLength,
-        ropeOnSeabed: 0,
+        chainLifted,
+        chainOnSeabed,
+        ropeDeployed: maxRopeLifted,
+        ropeLifted,
+        ropeOnSeabed,
+        rodeOnSeabed: chainOnSeabed + ropeOnSeabed,
         anchorAngle: 0,
-        horizontalReach: maxChainLifted + ropeHorizontal,
+        horizontalReach: chainOnSeabed + ropeOnSeabed + ropeHorizontal,
         liftedPoints: [
           { x: 0, y: 0 },
+          { x: 0, y: chainLifted },
           { x: ropeHorizontal, y: verticalDrop }
         ],
-        spliceIndex: 0,
-        liftWeight: input.anchorWeight + ropeLength * input.ropeWeight,
-        reachesBow: true,
+        spliceIndex: 1,
+        liftWeight: input.anchorWeight + ropeLifted * input.ropeWeight,
+        reachesBow: chainLifted + ropeLifted >= verticalDrop,
         lowLoad: true
       };
     }
@@ -183,7 +191,9 @@ function calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, hor
       chainLifted,
       chainOnSeabed,
       ropeDeployed: 0,
+      ropeLifted: 0,
       ropeOnSeabed: 0,
+      rodeOnSeabed: chainOnSeabed,
       anchorAngle: Math.PI / 2,
       horizontalReach: chainOnSeabed,
       liftedPoints: [
@@ -199,53 +209,69 @@ function calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, hor
 
   let low = 0;
   let high = maxChainLifted;
+  let ropeLifted = maxRopeLifted;
   let startingVerticalLoad = 0;
-  const fullRise = combinedVerticalRise(input, maxChainLifted, ropeLength, horizontalLoad);
+  const ropeOnlyRise = combinedVerticalRise(input, 0, maxRopeLifted, horizontalLoad);
+  const fullRise = combinedVerticalRise(input, maxChainLifted, maxRopeLifted, horizontalLoad);
 
-  if (fullRise < verticalDrop) {
+  if (maxRopeLifted > 0 && ropeOnlyRise >= verticalDrop) {
+    high = 0;
+    let ropeLow = 0;
+    let ropeHigh = maxRopeLifted;
+    for (let index = 0; index < 36; index += 1) {
+      const mid = (ropeLow + ropeHigh) / 2;
+      if (combinedVerticalRise(input, 0, mid, horizontalLoad) < verticalDrop) ropeLow = mid;
+      else ropeHigh = mid;
+    }
+    ropeLifted = ropeHigh;
+  } else if (fullRise < verticalDrop) {
     low = maxChainLifted;
     high = maxChainLifted;
     let loadLow = 0;
     let loadHigh = Math.max(1, horizontalLoad);
-    while (combinedVerticalRise(input, maxChainLifted, ropeLength, horizontalLoad, loadHigh) < verticalDrop && loadHigh < horizontalLoad * 1000) {
+    while (combinedVerticalRise(input, maxChainLifted, maxRopeLifted, horizontalLoad, loadHigh) < verticalDrop && loadHigh < horizontalLoad * 1000) {
       loadHigh *= 2;
     }
     for (let index = 0; index < 40; index += 1) {
       const mid = (loadLow + loadHigh) / 2;
-      if (combinedVerticalRise(input, maxChainLifted, ropeLength, horizontalLoad, mid) < verticalDrop) loadLow = mid;
+      if (combinedVerticalRise(input, maxChainLifted, maxRopeLifted, horizontalLoad, mid) < verticalDrop) loadLow = mid;
       else loadHigh = mid;
     }
     startingVerticalLoad = loadHigh;
   } else {
     for (let index = 0; index < 36; index += 1) {
       const mid = (low + high) / 2;
-      if (combinedVerticalRise(input, mid, ropeLength, horizontalLoad) < verticalDrop) low = mid;
+      if (combinedVerticalRise(input, mid, maxRopeLifted, horizontalLoad) < verticalDrop) low = mid;
       else high = mid;
     }
   }
 
   const chainLifted = Math.min(maxChainLifted, high);
   const chainOnSeabed = Math.max(0, maxChainLifted - chainLifted);
+  const ropeOnSeabed = Math.max(0, maxRopeLifted - ropeLifted);
+  const rodeOnSeabed = chainOnSeabed + ropeOnSeabed;
   const chain = catenarySegment(input.chainWeight, chainLifted, horizontalLoad, startingVerticalLoad, 18);
-  const rope = catenarySegment(input.ropeWeight, ropeLength, horizontalLoad, startingVerticalLoad + chainLifted * input.chainWeight, 18);
+  const rope = catenarySegment(input.ropeWeight, ropeLifted, horizontalLoad, startingVerticalLoad + chainLifted * input.chainWeight, 18);
   const ropePoints = rope.points.map((point) => ({
     x: chain.horizontal + point.x,
     y: chain.vertical + point.y
   }));
   const liftedPoints = [
     ...chain.points,
-    ...ropePoints.slice(ropeLength > 0 ? 1 : ropePoints.length)
+    ...ropePoints.slice(ropeLifted > 0 ? 1 : ropePoints.length)
   ];
-  const horizontalReach = chainOnSeabed + chain.horizontal + rope.horizontal;
-  const liftWeight = input.anchorWeight + chainLifted * input.chainWeight + ropeLength * input.ropeWeight;
+  const horizontalReach = rodeOnSeabed + chain.horizontal + rope.horizontal;
+  const liftWeight = input.anchorWeight + chainLifted * input.chainWeight + ropeLifted * input.ropeWeight;
 
   return {
     chainA: chain.a,
     ropeA: rope.a,
     chainLifted,
     chainOnSeabed,
-    ropeDeployed: ropeLength,
-    ropeOnSeabed: 0,
+    ropeDeployed: maxRopeLifted,
+    ropeLifted,
+    ropeOnSeabed,
+    rodeOnSeabed,
     anchorAngle: Math.atan2(startingVerticalLoad, Math.max(0.01, horizontalLoad)),
     horizontalReach,
     liftedPoints,
@@ -259,8 +285,9 @@ function calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, hor
 function anchorMarginAtHighWaterLoad(input, depthLw, horizontalLoad) {
   const highWaterDepth = depthLw + input.hwHeight;
   const highWaterVerticalDrop = highWaterDepth + input.bowHeight;
-  const chainDeployed = Math.min(input.rodeLength, input.chainLength);
-  const ropeDeployed = Math.max(0, input.rodeLength - input.chainLength);
+  const deployedRode = Math.min(input.rodeLength, input.chainLength + input.ropeLength);
+  const chainDeployed = Math.min(deployedRode, input.chainLength);
+  const ropeDeployed = Math.min(input.ropeLength, Math.max(0, deployedRode - input.chainLength));
   const highWaterCatenary = calculateCatenary(input, highWaterVerticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
   const holdingFactor = anchorAngleHoldingFactor(highWaterCatenary.anchorAngle);
 
@@ -308,17 +335,18 @@ function calculateForDepth(input, depthLw) {
   const highWaterDepth = depthLw + input.hwHeight;
   const currentDepth = depthLw + input.tideHeight;
   const rodeLength = input.rodeLength;
+  const totalRode = input.chainLength + input.ropeLength;
+  const deployedRode = Math.min(rodeLength, totalRode);
   const verticalDrop = currentDepth + input.bowHeight;
   const lowWaterVerticalDrop = lowWaterDepth + input.bowHeight;
   const highWaterVerticalDrop = highWaterDepth + input.bowHeight;
-  const totalRode = input.chainLength + input.ropeLength;
-  const amountOnSeabed = Math.max(0, rodeLength - verticalDrop);
-  const lowWaterAmountOnSeabed = Math.max(0, rodeLength - lowWaterVerticalDrop);
+  const amountOnSeabed = Math.max(0, deployedRode - verticalDrop);
+  const lowWaterAmountOnSeabed = Math.max(0, deployedRode - lowWaterVerticalDrop);
   const windForce = (1 / 500) * input.loa * input.loa * input.windSpeed * input.windSpeed;
   const tidalForce = calculateTidalForce(input);
   const horizontalLoad = windForce + tidalForce;
-  const chainDeployed = Math.min(rodeLength, input.chainLength);
-  const ropeDeployed = Math.max(0, rodeLength - input.chainLength);
+  const chainDeployed = Math.min(deployedRode, input.chainLength);
+  const ropeDeployed = Math.min(input.ropeLength, Math.max(0, deployedRode - input.chainLength));
   const catenary = calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
   const lowWaterCatenary = calculateCatenary(input, lowWaterVerticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
   const highWaterCatenary = calculateCatenary(input, highWaterVerticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
@@ -340,6 +368,7 @@ function calculateForDepth(input, depthLw) {
     horizontalReach: catenary.horizontalReach,
     scopeRatio: verticalDrop > 0 ? rodeLength / verticalDrop : 0,
     rodeLength,
+    deployedRode,
     totalRode,
     amountOnSeabed,
     lowWaterAmountOnSeabed,
@@ -671,11 +700,12 @@ function renderDiagram(result, mode = diagramMode) {
   const rodeMidY = (bowPointY + anchorY) / 2 - 10;
   const ropeDeployed = result.ropeDeployed;
   const chainDeployed = Math.min(result.rodeLength, input.chainLength);
-  const touchDownX = anchorX - result.chainOnSeabed * scale;
+  const chainTouchDownX = anchorX - result.chainOnSeabed * scale;
+  const rodeTouchDownX = anchorX - result.rodeOnSeabed * scale;
   const hwBowX = anchorX - hwResult.horizontalReach * scale;
   const hasRopeDeployed = ropeDeployed > 0.05;
-  const chainPath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.chainOnSeabed, 0, result.catenarySpliceIndex + 1);
-  const ropePath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.chainOnSeabed, result.catenarySpliceIndex, result.catenaryPoints.length);
+  const chainPath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.rodeOnSeabed, 0, result.catenarySpliceIndex + 1);
+  const ropePath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.rodeOnSeabed, result.catenarySpliceIndex, result.catenaryPoints.length);
   const anchorAngleDeg = Math.abs(result.anchorAngle * 180 / Math.PI);
   const catenaryLabel = result.lowLoadCatenary
     ? `${modeLabel}: calm layout, rope drawn straight`
@@ -704,7 +734,8 @@ function renderDiagram(result, mode = diagramMode) {
     svg("circle", { cx: bowX, cy: bowPointY, r: 5, fill: "#17212b" }),
     ...(chainDeployed > 0 ? [svg("path", { d: chainPath, fill: "none", stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "3 7" })] : []),
     ...(hasRopeDeployed ? [svg("path", { d: ropePath, fill: "none", stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "10 7" })] : []),
-    ...(result.chainOnSeabed > 0.05 ? [svg("line", { x1: touchDownX, y1: seabedY + 4, x2: anchorX, y2: seabedY + 4, stroke: "#2f3b44", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "3 7", opacity: 0.9 })] : []),
+    ...(result.ropeOnSeabed > 0.05 ? [svg("line", { x1: rodeTouchDownX, y1: seabedY + 8, x2: chainTouchDownX, y2: seabedY + 8, stroke: "#c77a16", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "10 7", opacity: 0.9 })] : []),
+    ...(result.chainOnSeabed > 0.05 ? [svg("line", { x1: chainTouchDownX, y1: seabedY + 4, x2: anchorX, y2: seabedY + 4, stroke: "#2f3b44", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "3 7", opacity: 0.9 })] : []),
     svg("path", { d: `M${anchorX - 20} ${anchorY - 18} L${anchorX} ${anchorY} L${anchorX + 24} ${anchorY - 12} M${anchorX} ${anchorY} L${anchorX + 2} ${anchorY - 34}`, stroke: "#17212b", "stroke-width": 5, fill: "none", "stroke-linecap": "round" }),
     svg("text", { x: labelX, y: rodeMidY, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`Rode ${fmt(result.rodeLength, 1, " m")} / scope ${fmt(result.scopeRatio, 1, ":1")}`)]),
     svg("text", { x: labelX, y: rodeMidY + 18, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(catenaryLabel)]),
