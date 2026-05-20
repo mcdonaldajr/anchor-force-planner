@@ -2,7 +2,7 @@
 
 Local web app version of `Anchor Force.xlsx`.
 
-It calculates anchor wind load, tidal-stream load, HW-set rode length, per-tide-state scope, estimated chain catenary, seabed rode, rope-on-seabed risk, weight to lift, tide-derived depth now, and keel clearance. Boat-specific constants live on the **Boat Settings** tab. The **Tide** tab accepts local HW/LW times and heights for the anchorage and estimates tide rise now with the rule of twelfths.
+It calculates anchor wind load, tidal-stream load, HW-set rode length, per-tide-state scope, estimated combined chain/rope catenary, seabed rode, rope-on-seabed risk, weight to lift, tide-derived depth now, and keel clearance. Boat-specific constants live on the **Boat Settings** tab. The **Tide** tab accepts local HW/LW times and heights for the anchorage and estimates tide rise now with the rule of twelfths.
 
 ## Quick Start
 

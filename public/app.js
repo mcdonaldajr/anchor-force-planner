@@ -15,6 +15,7 @@ const defaults = {
   chainLength: 50,
   ropeLength: 50,
   chainWeight: 1.4,
+  ropeWeight: 0.12,
   anchorWeight: 15,
   underwaterDragFactor: 0.35
 };
@@ -58,22 +59,89 @@ function calculateTidalForce(input) {
   return 13.2 * underwaterArea * input.tidalStream ** 2;
 }
 
-function calculateCatenary(input, verticalDrop, chainDeployed, horizontalLoad) {
-  const chainWeight = Math.max(0.01, input.chainWeight);
-  const load = Math.max(0.01, horizontalLoad);
-  const a = load / chainWeight;
-  const suspendedNeeded = Math.sqrt(Math.max(0, verticalDrop ** 2 + 2 * a * verticalDrop));
-  const chainLifted = Math.min(chainDeployed, suspendedNeeded);
-  const chainOnSeabed = Math.max(0, chainDeployed - chainLifted);
-  const liftWeight = input.anchorWeight + chainLifted * input.chainWeight;
-  const catenaryReach = a * Math.acosh(1 + verticalDrop / a);
+function catenarySegment(weight, length, horizontalLoad, startingVerticalLoad = 0, samples = 14) {
+  const w = Math.max(0.01, weight);
+  const h = Math.max(0.01, horizontalLoad);
+  const a = h / w;
+  const q0 = startingVerticalLoad / w;
+  const base = Math.sqrt(q0 ** 2 + a ** 2);
+  const baseAsinh = Math.asinh(q0 / a);
+  const vertical = Math.sqrt((q0 + length) ** 2 + a ** 2) - base;
+  const horizontal = a * (Math.asinh((q0 + length) / a) - baseAsinh);
+  const points = Array.from({ length: samples }, (_, index) => {
+    const s = length * (index / Math.max(1, samples - 1));
+    return {
+      x: a * (Math.asinh((q0 + s) / a) - baseAsinh),
+      y: Math.sqrt((q0 + s) ** 2 + a ** 2) - base
+    };
+  });
+
+  return { a, horizontal, vertical, points };
+}
+
+function combinedVerticalRise(input, chainLifted, ropeDeployed, horizontalLoad, startingVerticalLoad = 0) {
+  const chain = catenarySegment(input.chainWeight, chainLifted, horizontalLoad, startingVerticalLoad, 2);
+  const rope = catenarySegment(input.ropeWeight, ropeDeployed, horizontalLoad, startingVerticalLoad + chainLifted * input.chainWeight, 2);
+  return chain.vertical + rope.vertical;
+}
+
+function calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, horizontalLoad) {
+  const maxChainLifted = Math.max(0, chainDeployed);
+  const ropeLength = Math.max(0, ropeDeployed);
+  let low = 0;
+  let high = maxChainLifted;
+  let startingVerticalLoad = 0;
+  const fullRise = combinedVerticalRise(input, maxChainLifted, ropeLength, horizontalLoad);
+
+  if (fullRise < verticalDrop) {
+    low = maxChainLifted;
+    high = maxChainLifted;
+    let loadLow = 0;
+    let loadHigh = Math.max(1, horizontalLoad);
+    while (combinedVerticalRise(input, maxChainLifted, ropeLength, horizontalLoad, loadHigh) < verticalDrop && loadHigh < horizontalLoad * 1000) {
+      loadHigh *= 2;
+    }
+    for (let index = 0; index < 40; index += 1) {
+      const mid = (loadLow + loadHigh) / 2;
+      if (combinedVerticalRise(input, maxChainLifted, ropeLength, horizontalLoad, mid) < verticalDrop) loadLow = mid;
+      else loadHigh = mid;
+    }
+    startingVerticalLoad = loadHigh;
+  } else {
+    for (let index = 0; index < 36; index += 1) {
+      const mid = (low + high) / 2;
+      if (combinedVerticalRise(input, mid, ropeLength, horizontalLoad) < verticalDrop) low = mid;
+      else high = mid;
+    }
+  }
+
+  const chainLifted = Math.min(maxChainLifted, high);
+  const chainOnSeabed = Math.max(0, maxChainLifted - chainLifted);
+  const chain = catenarySegment(input.chainWeight, chainLifted, horizontalLoad, startingVerticalLoad, 18);
+  const rope = catenarySegment(input.ropeWeight, ropeLength, horizontalLoad, startingVerticalLoad + chainLifted * input.chainWeight, 18);
+  const ropePoints = rope.points.map((point) => ({
+    x: chain.horizontal + point.x,
+    y: chain.vertical + point.y
+  }));
+  const liftedPoints = [
+    ...chain.points,
+    ...ropePoints.slice(ropeLength > 0 ? 1 : ropePoints.length)
+  ];
+  const horizontalReach = chainOnSeabed + chain.horizontal + rope.horizontal;
+  const liftWeight = input.anchorWeight + chainLifted * input.chainWeight + ropeLength * input.ropeWeight;
 
   return {
-    a,
-    catenaryReach,
+    chainA: chain.a,
+    ropeA: rope.a,
     chainLifted,
     chainOnSeabed,
-    liftWeight
+    ropeDeployed: ropeLength,
+    anchorAngle: Math.atan2(startingVerticalLoad, Math.max(0.01, horizontalLoad)),
+    horizontalReach,
+    liftedPoints,
+    spliceIndex: Math.max(0, chain.points.length - 1),
+    liftWeight,
+    reachesBow: fullRise >= verticalDrop
   };
 }
 
@@ -96,8 +164,9 @@ function calculateForDepth(input, depthLw) {
   const tidalForce = calculateTidalForce(input);
   const horizontalLoad = windForce + tidalForce;
   const chainDeployed = Math.min(rodeLength, input.chainLength);
-  const catenary = calculateCatenary(input, verticalDrop, chainDeployed, horizontalLoad);
-  const lowWaterCatenary = calculateCatenary(input, lowWaterVerticalDrop, chainDeployed, horizontalLoad);
+  const ropeDeployed = Math.max(0, rodeLength - input.chainLength);
+  const catenary = calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
+  const lowWaterCatenary = calculateCatenary(input, lowWaterVerticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
   const shortfall = Math.max(0, rodeLength - totalRode);
   const lowWaterClearance = lowWaterDepth - input.draft;
   const keelClearance = currentDepth - input.draft;
@@ -109,7 +178,7 @@ function calculateForDepth(input, depthLw) {
     sounderLw: lowWaterDepth - input.sounderOffset,
     depthHw: currentDepth,
     verticalDrop,
-    horizontalReach: Math.sqrt(Math.max(0, rodeLength ** 2 - verticalDrop ** 2)),
+    horizontalReach: catenary.horizontalReach,
     scopeRatio: verticalDrop > 0 ? rodeLength / verticalDrop : 0,
     rodeLength,
     totalRode,
@@ -118,14 +187,18 @@ function calculateForDepth(input, depthLw) {
     ropeOnSeabed,
     chainLifted: catenary.chainLifted,
     chainOnSeabed: catenary.chainOnSeabed,
+    ropeDeployed: catenary.ropeDeployed,
     lowWaterChainLifted: lowWaterCatenary.chainLifted,
     lowWaterChainOnSeabed: lowWaterCatenary.chainOnSeabed,
     liftWeight: catenary.liftWeight,
     windForce,
     tidalForce,
     horizontalLoad,
-    catenaryReach: catenary.catenaryReach,
-    catenaryA: catenary.a,
+    catenaryPoints: catenary.liftedPoints,
+    catenarySpliceIndex: catenary.spliceIndex,
+    anchorAngle: catenary.anchorAngle,
+    chainA: catenary.chainA,
+    ropeA: catenary.ropeA,
     shortfall,
     keelClearance,
     lowWaterClearance,
@@ -358,19 +431,12 @@ function svg(tag, attrs = {}, children = []) {
   return el;
 }
 
-function catenaryPath(x1, y1, x2, y2, aPx) {
-  const run = Math.max(1, x2 - x1);
-  const drop = y2 - y1;
-  if (drop <= 1 || run <= 4 || !Number.isFinite(aPx) || aPx <= 1) return `M${x1} ${y1} L${x2} ${y2}`;
-  const u = Math.acosh(1 + drop / aPx);
-  const divisor = Math.max(0.001, Math.cosh(u) - 1);
-  const points = Array.from({ length: 18 }, (_, index) => {
-    const t = index / 17;
-    const x = x1 + run * t;
-    const y = y1 + drop * ((Math.cosh(u * t) - 1) / divisor);
+function pathFromPhysicalPoints(points, anchorX, seabedY, scale, chainOnSeabed, start = 0, end = points.length) {
+  return points.slice(start, end).map((point, index) => {
+    const x = anchorX - (chainOnSeabed + point.x) * scale;
+    const y = seabedY - point.y * scale;
     return `${index === 0 ? "M" : "L"}${round(x, 2)} ${round(y, 2)}`;
-  });
-  return points.join(" ");
+  }).join(" ");
 }
 
 function renderDiagram(result, mode = diagramMode) {
@@ -411,17 +477,17 @@ function renderDiagram(result, mode = diagramMode) {
   const keelHitsBottom = keelBottomY >= seabedY;
   const labelX = Math.min(anchorX - 170, Math.max(bowX + 120, bowX + horizontalReach * scale * 0.48));
   const rodeMidY = (bowPointY + anchorY) / 2 - 10;
-  const ropeDeployed = Math.max(0, result.rodeLength - input.chainLength);
+  const ropeDeployed = result.ropeDeployed;
   const chainDeployed = Math.min(result.rodeLength, input.chainLength);
-  const chainStartRatio = result.rodeLength > 0 ? ropeDeployed / result.rodeLength : 0;
-  const chainStartX = bowX + (anchorX - bowX) * chainStartRatio;
-  const chainStartY = bowPointY + (anchorY - bowPointY) * chainStartRatio;
-  const ropeOnSeabedStartX = anchorX - result.amountOnSeabed * scale;
-  const chainOnSeabedStartX = Math.max(chainStartX, anchorX - result.chainOnSeabed * scale);
+  const touchDownX = anchorX - result.chainOnSeabed * scale;
   const hwBowX = anchorX - hwResult.horizontalReach * scale;
   const hasRopeDeployed = ropeDeployed > 0.05;
-  const hasRopeOnSeabed = result.amountOnSeabed - input.chainLength > 0.05;
-  const chainPath = catenaryPath(chainStartX, chainStartY, chainOnSeabedStartX, seabedY, result.catenaryA * scale);
+  const chainPath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.chainOnSeabed, 0, result.catenarySpliceIndex + 1);
+  const ropePath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.chainOnSeabed, result.catenarySpliceIndex, result.catenaryPoints.length);
+  const anchorAngleDeg = Math.abs(result.anchorAngle * 180 / Math.PI);
+  const catenaryLabel = result.chainOnSeabed > 0.05
+    ? `${modeLabel} catenary: ${fmt(result.chainLifted, 1, " m")} chain lifted`
+    : `${modeLabel} catenary: chain fully lifted, anchor angle ${fmt(anchorAngleDeg, 0, " deg")}`;
   const sternDistance = horizontalReach + input.loa;
   const distanceY = seabedY + 60;
   const distanceStartX = Math.max(18, boatSternX);
@@ -447,19 +513,18 @@ function renderDiagram(result, mode = diagramMode) {
     svg("line", { x1: keelCenterX + keelHalfWidth + 6, y1: waterY, x2: keelCenterX + keelHalfWidth + 18, y2: waterY, stroke: keelHitsBottom ? "#b44444" : "#5f6c76", "stroke-width": 2 }),
     svg("line", { x1: keelCenterX + keelHalfWidth + 6, y1: keelBottomY, x2: keelCenterX + keelHalfWidth + 18, y2: keelBottomY, stroke: keelHitsBottom ? "#b44444" : "#5f6c76", "stroke-width": 2 }),
     svg("circle", { cx: bowX, cy: bowPointY, r: 5, fill: "#17212b" }),
-    ...(hasRopeDeployed ? [svg("line", { x1: bowX, y1: bowPointY, x2: chainStartX, y2: chainStartY, stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-dasharray": "10 7" })] : []),
     ...(chainDeployed > 0 ? [svg("path", { d: chainPath, fill: "none", stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "3 7" })] : []),
-    ...(hasRopeOnSeabed ? [svg("line", { x1: ropeOnSeabedStartX, y1: seabedY + 4, x2: chainOnSeabedStartX, y2: seabedY + 4, stroke: "#c77a16", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "10 7", opacity: 0.9 })] : []),
-    svg("line", { x1: chainOnSeabedStartX, y1: seabedY + 4, x2: anchorX, y2: seabedY + 4, stroke: "#2f3b44", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "3 7", opacity: 0.9 }),
+    ...(hasRopeDeployed ? [svg("path", { d: ropePath, fill: "none", stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "10 7" })] : []),
+    ...(result.chainOnSeabed > 0.05 ? [svg("line", { x1: touchDownX, y1: seabedY + 4, x2: anchorX, y2: seabedY + 4, stroke: "#2f3b44", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "3 7", opacity: 0.9 })] : []),
     svg("path", { d: `M${anchorX - 20} ${anchorY - 18} L${anchorX} ${anchorY} L${anchorX + 24} ${anchorY - 12} M${anchorX} ${anchorY} L${anchorX + 2} ${anchorY - 34}`, stroke: "#17212b", "stroke-width": 5, fill: "none", "stroke-linecap": "round" }),
     svg("text", { x: keelCenterX + keelHalfWidth + 20, y: Math.min(keelBottomY + 16, seabedY - 8), fill: keelHitsBottom ? "#8f2222" : "#17212b", "font-size": 12 }, [document.createTextNode(`draft ${fmt(input.draft, 1, " m")}`)]),
     svg("text", { x: labelX, y: rodeMidY, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`Rode ${fmt(result.rodeLength, 1, " m")} / scope ${fmt(result.scopeRatio, 1, ":1")}`)]),
-    svg("text", { x: labelX, y: rodeMidY + 18, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(`estimated catenary: ${fmt(result.chainLifted, 1, " m")} chain lifted`)]),
+    svg("text", { x: labelX, y: rodeMidY + 18, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(catenaryLabel)]),
     svg("line", { x1: 588, y1: 34, x2: 636, y2: 34, stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "3 7" }),
     svg("text", { x: 644, y: 38, fill: "#17212b", "font-size": 12 }, [document.createTextNode(`chain ${fmt(Math.min(input.chainLength, result.rodeLength), 1, " m")}`)]),
     svg("line", { x1: 588, y1: 54, x2: 636, y2: 54, stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-dasharray": "10 7" }),
     svg("text", { x: 644, y: 58, fill: "#17212b", "font-size": 12 }, [document.createTextNode(`rope ${fmt(ropeDeployed, 1, " m")}`)]),
-    svg("text", { x: Math.max(bowX + 10, lowWaterTouchX + 10), y: seabedY + 28, fill: "#17212b", "font-size": 13 }, [document.createTextNode(`${fmt(result.chainOnSeabed, 1, " m")} chain on seabed`)]),
+    svg("text", { x: Math.max(bowX + 10, lowWaterTouchX + 10), y: seabedY + 28, fill: "#17212b", "font-size": 13 }, [document.createTextNode(`${fmt(result.chainOnSeabed, 1, " m")} chain on seabed at ${modeLabel}`)]),
     svg("line", { x1: distanceStartX, y1: distanceY, x2: anchorX, y2: distanceY, stroke: "#7a6a45", "stroke-width": 2 }),
     svg("line", { x1: distanceStartX, y1: distanceY - 5, x2: distanceStartX, y2: distanceY + 5, stroke: "#7a6a45", "stroke-width": 2 }),
     svg("line", { x1: anchorX, y1: distanceY - 5, x2: anchorX, y2: distanceY + 5, stroke: "#7a6a45", "stroke-width": 2 }),
@@ -511,7 +576,7 @@ function renderRodeTable() {
   const input = currentInputs();
   renderTable("rodeTable", ["Type", "Diameter", "Weight kg/m", "Total weight", "Typical WLL", "Typical break"], [
     ["G40 Chain", "8mm", fmt(input.chainWeight, 1), fmt(input.chainLength * input.chainWeight, 1, " kg"), "800 kgf", "4030 kgf"],
-    ["Anchorplait", "14mm", "-", "-", "-", "-"]
+    ["Anchorplait", "14mm", fmt(input.ropeWeight, 2), fmt(input.ropeLength * input.ropeWeight, 1, " kg"), "-", "-"]
   ]);
 }
 
