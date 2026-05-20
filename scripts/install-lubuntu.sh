@@ -22,9 +22,9 @@ cat > "$DESKTOP_FILE" <<EOF
 Type=Application
 Name=${APP_NAME}
 Comment=Run the local anchor force planner web app
-Exec=${APP_DIR}/scripts/start-lubuntu.sh
+Exec=${APP_DIR}/scripts/start-lubuntu.sh --desktop
 Icon=${APP_DIR}/assets/anchor-force-planner.svg
-Terminal=true
+Terminal=false
 Categories=Utility;Education;
 StartupNotify=false
 EOF
@@ -33,5 +33,5 @@ cp "$DESKTOP_FILE" "${DESKTOP_DIR}/${APP_NAME}.desktop"
 chmod +x "$DESKTOP_FILE" "${DESKTOP_DIR}/${APP_NAME}.desktop"
 
 echo "Installed ${APP_NAME} launcher."
-echo "Use the desktop icon, or run: ${APP_DIR}/scripts/start-lubuntu.sh"
+echo "Use the desktop icon to start the app and open Firefox, or run: ${APP_DIR}/scripts/start-lubuntu.sh"
 echo "For iPad access, keep the Lubuntu laptop and iPad on the same Wi-Fi and open the printed LAN URL."

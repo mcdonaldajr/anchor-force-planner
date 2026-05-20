@@ -46,6 +46,8 @@ Start from the desktop icon, or run:
 ./scripts/start-lubuntu.sh
 ```
 
+The Lubuntu desktop icon starts the server in the background, opens Firefox to the app, and does not leave a shell window open.
+
 The Lubuntu launcher binds to `0.0.0.0`, so other devices on the same Wi-Fi can access it.
 
 ## iPad Access To Lubuntu Server
