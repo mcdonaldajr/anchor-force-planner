@@ -368,10 +368,10 @@ function calculateIdealRode(input = currentInputs()) {
   notes.push(`${fmt(wind, 0, " kn")} wind plus ${fmt(input.tidalStream, 1, " kn")} tidal stream gives an equivalent load of about ${fmt(equivalentWind, 0, " kn")} wind.`);
   notes.push(`That sets the HW recommendation at ${fmt(desired, 1, ":1")}.`);
   if (idealLength > totalRode) notes.push(`Available rode caps this at ${fmt(totalRode, 1, " m")}.`);
-  if (result.ropeOnSeabed > 0 && input.ropeLength > 0) {
-    notes.push(`This may put about ${fmt(result.ropeOnSeabed, 1, " m")} of rope on the seabed at low water.`);
+  if (result.highWaterChainOnSeabed < 5) {
+    notes.push(`At HW, estimated catenary leaves only ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed.`);
   } else {
-    notes.push("Keeps the seabed section on chain at low water with these settings.");
+    notes.push(`Keeps about ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed at HW with these settings.`);
   }
 
   return {
@@ -379,6 +379,7 @@ function calculateIdealRode(input = currentInputs()) {
     scope: result.scopeRatio,
     shortfall: result.shortfall,
     ropeOnSeabed: result.ropeOnSeabed,
+    highWaterChainOnSeabed: result.highWaterChainOnSeabed,
     notes
   };
 }
