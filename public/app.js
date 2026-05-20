@@ -873,9 +873,9 @@ async function renderAbout() {
     document.getElementById("serverAddress").textContent = `${data.host || location.hostname}:${data.port || location.port || "4184"}`;
     document.getElementById("serverStarted").textContent = fmtDateTime(data.startedAt);
   } catch {
-    document.getElementById("serverVersion").textContent = "Unavailable";
+    document.getElementById("serverVersion").textContent = "Needs server restart";
     document.getElementById("serverAddress").textContent = location.host || "-";
-    document.getElementById("serverStarted").textContent = "-";
+    document.getElementById("serverStarted").textContent = "Open the Lubuntu launcher again";
   }
 }
 
