@@ -12,6 +12,24 @@ The anchor drag check uses the entered anchor UHC as ideal near-horizontal holdi
 
 The **About** tab shows the web and server version numbers so you can check whether a Lubuntu machine has the latest pull.
 
+## Model Notes
+
+These calculations are planning estimates, not certified engineering or a substitute for local judgement.
+
+- Wind load uses a drag equation estimate: `0.0165 * projectedWindageArea * windSpeed^2`, where projected windage area is estimated as `LOA^2 * windageFactor`. The default windage factor is deliberately conservative for a 10 m cruising yacht; adjust it if you know the boat's projected windage.
+- Tidal-stream load uses the same drag-equation approach in water: `13.2 * LOA * draft * underwaterDragFactor * tidalStream^2`.
+- Tide rise uses the rule of twelfths between the entered LW and HW. It is a quick interpolation only; tide curves, barometric pressure, surge, river flow, and local effects can make real water levels differ.
+- Catenary is estimated separately for lifted chain and lifted rope. Surplus rode can lie on the seabed, and the diagram caps deployed rode at chain plus rope carried.
+- Anchor holding is highly seabed- and set-dependent. The UHC input should be treated as an ideal near-horizontal holding value. The app applies a simple pull-angle reduction, but it cannot model seabed type, veering, snatch loads, yawing, fouling, weed, or shock loading.
+
+## Model References
+
+- NASA Glenn Research Center, [The Drag Equation](https://www.grc.nasa.gov/www/k-12/VirtualAero/BottleRocket/airplane/drageq.html): basis for the wind and tidal-stream drag models.
+- NOAA National Ocean Service, [Tides and Currents](https://oceanservice.noaa.gov/navigation/tidesandcurrents/): tide height and tidal current are related but distinct navigation data.
+- NOAA Tides & Currents, [FAQ](https://tidesandcurrents.noaa.gov/faq.html): do not assume slack water or peak tidal current occurs exactly at HW/LW.
+- BoatUS Foundation, [Docking study guide](https://boatus.org/study-guide/navigation/docking): standard anchoring scope guidance and bow-to-bottom scope definition.
+- boats.com, [Anchoring Essentials](https://www.boats.com/anchoring-essentials/): wind load rises with wind speed squared and can become large quickly on cruising boats.
+
 ## Quick Start
 
 ```sh
@@ -69,6 +87,19 @@ If the iPad cannot connect, check the Lubuntu firewall:
 ```sh
 sudo ufw allow 4184/tcp
 ```
+
+## Updating On Lubuntu
+
+From the app folder:
+
+```sh
+git stash push -m "local changes before update"
+git pull
+chmod +x scripts/start-lubuntu.sh scripts/install-lubuntu.sh
+./scripts/install-lubuntu.sh
+```
+
+Then launch from the desktop icon again and check **About**. The web and server versions should match.
 
 ## Windows Install
 

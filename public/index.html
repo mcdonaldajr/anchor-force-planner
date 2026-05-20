@@ -46,22 +46,22 @@
             </div>
 
             <div class="inputGrid">
-              <label title="Expected wind speed at the anchorage. Used to estimate horizontal load on the boat.">Wind speed
+              <label title="Expected true wind at the anchorage in knots. Wind load uses the Boat Settings windage factor and increases with wind speed squared.">Wind speed
                 <span class="inputWithUnit"><input id="windSpeed" type="number" value="40" min="0" max="90" step="1"><span>kn</span></span>
               </label>
-              <label title="Expected tidal stream through the anchorage. This is added to wind load for catenary, ideal rode, and drag checks.">Tidal stream
+              <label title="Expected tidal stream through the anchorage in knots. This is separate from tide height and is added as horizontal load for catenary, ideal rode, and drag checks.">Tidal stream
                 <span class="inputWithUnit"><input id="tidalStream" type="number" value="1.0" min="0" max="8" step="0.1"><span>kn</span></span>
               </label>
-              <label title="Charted depth at chart datum. Present depth from this source is charted depth plus tide rise now.">Charted depth
+              <label title="Charted depth at chart datum for the spot where the anchor is expected to lie. When using chart + tide, present water depth is charted depth plus calculated tide rise now.">Charted depth
                 <span class="inputWithUnit"><input id="depthLw" type="number" value="5" min="0" max="40" step="0.1"><span>m</span></span>
               </label>
               <label id="echoDepthLabel" title="Echo sounder reading now. Boat Settings controls whether this is beneath keel or actual water depth from the surface.">Echo below keel now
                 <span class="inputWithUnit"><input id="echoBelowKeel" type="number" value="6.2" min="0" max="80" step="0.1"><span>m</span></span>
               </label>
-              <label title="Calculated from the Tide tab using HW/LW times and heights. Read-only.">Tide rise now
+              <label title="Calculated from the Tide tab using HW/LW times and heights with the rule of twelfths. Read-only and approximate.">Tide rise now
                 <span class="inputWithUnit"><input id="tideHeight" type="text" value="3.0" readonly><span>m</span></span>
               </label>
-              <label title="Total deployed rode from bow to anchor. Ideal rode is calculated at high water.">Rode length
+              <label title="Total rode you intend to deploy from bow roller to anchor. If more is entered than the boat carries, the app warns and caps the diagram at available chain plus rope.">Rode length
                 <span class="inputWithUnit"><input id="rodeLength" type="number" value="40" min="1" max="300" step="1"><span>m</span></span>
               </label>
             </div>
@@ -71,13 +71,13 @@
                 <button class="depthSourceButton" type="button" data-depth-source="sounder" title="Use the echo-sounder reading, adjusted by the Boat Settings echo mode, as the present water depth.">Use echo sounder</button>
               </div>
               <div class="depthCompare">
-                <div><span>Chart + tide depth now</span><strong id="chartDepthNow">-</strong></div>
-                <div><span>Measured depth now</span><strong id="sounderDepthNow">-</strong></div>
-                <div><span>Difference</span><strong id="depthDifference">-</strong></div>
+                <div title="Present water depth from charted depth plus calculated tide rise."><span>Chart + tide depth now</span><strong id="chartDepthNow">-</strong></div>
+                <div title="Present water depth from the echo sounder, adjusted by the Boat Settings echo mode."><span>Measured depth now</span><strong id="sounderDepthNow">-</strong></div>
+                <div title="Measured depth minus chart+tide depth. A large difference can mean the charted depth, transducer mode, or tide data is wrong."><span>Difference</span><strong id="depthDifference">-</strong></div>
               </div>
             </section>
             <div class="recommendationActions">
-              <button id="calculateIdealRode" type="button">Calculate ideal rode</button>
+              <button id="calculateIdealRode" type="button" title="Recommend deployed rode from high-water depth, expected wind, tidal stream, and available chain plus rope.">Calculate ideal rode</button>
             </div>
             <section id="scopeRecommendation" class="recommendationPanel" aria-live="polite">
               <span>Recommended rode</span>
@@ -90,16 +90,16 @@
           <section class="resultsPanel" aria-label="Anchor result summary">
             <div id="statusBanner" class="statusBanner">-</div>
             <section class="summary" aria-label="Summary values">
-              <div><span>Wind force</span><strong id="windForce">-</strong></div>
-              <div><span>Tidal load</span><strong id="tidalForce">-</strong></div>
-              <div><span>Rode set</span><strong id="rodeNeeded">-</strong></div>
-              <div><span>Keel clearance now</span><strong id="clearanceNow">-</strong></div>
-              <div><span>Scope now</span><strong id="scopeNow">-</strong></div>
-              <div><span>Chain on seabed at HW</span><strong id="seabedLength">-</strong></div>
-              <div><span>Max lift weight</span><strong id="liftWeight">-</strong></div>
-              <div><span>Rope on seabed</span><strong id="ropeSeabed">-</strong></div>
-              <div><span>Chain on seabed now</span><strong id="chainSeabed">-</strong></div>
-              <div><span>Anchor margin at HW</span><strong id="anchorMargin">-</strong></div>
+              <div title="Estimated horizontal wind load using windage factor, LOA squared, and wind speed squared."><span>Wind force</span><strong id="windForce">-</strong></div>
+              <div title="Estimated horizontal tidal-stream load from underwater projected area and stream speed squared."><span>Tidal load</span><strong id="tidalForce">-</strong></div>
+              <div title="Rode length entered in the planner. The diagram uses the available rode if this exceeds chain plus rope carried."><span>Rode set</span><strong id="rodeNeeded">-</strong></div>
+              <div title="Depth beneath the keel now from the selected depth source."><span>Keel clearance now</span><strong id="clearanceNow">-</strong></div>
+              <div title="Displayed scope for the selected Now view: rode length divided by water depth plus bow height."><span>Scope now</span><strong id="scopeNow">-</strong></div>
+              <div title="Estimated chain still lying on the seabed at high water. High water is the drag-risk case because the deepest water lifts the most chain."><span>Chain on seabed at HW</span><strong id="seabedLength">-</strong></div>
+              <div title="Estimated suspended anchor, chain, and rope weight in the selected Now condition."><span>Max lift weight</span><strong id="liftWeight">-</strong></div>
+              <div title="Estimated rope lying on the seabed now. Rope on the bottom can chafe."><span>Rope on seabed</span><strong id="ropeSeabed">-</strong></div>
+              <div title="Estimated chain lying on the seabed now."><span>Chain on seabed now</span><strong id="chainSeabed">-</strong></div>
+              <div title="High-water effective anchor holding minus wind plus tidal-stream load, after the pull-angle reduction."><span>Anchor margin at HW</span><strong id="anchorMargin">-</strong></div>
               <div title="Maximum wind load the anchor model allows at high water with this rode length and tidal stream before the anchor margin reaches zero."><span>Max wind before drag</span><strong id="windDragLimit">-</strong></div>
             </section>
 
@@ -124,16 +124,16 @@
         </div>
         <section class="inputPanel settingsPanel" aria-label="Tide settings">
           <div class="inputGrid settingsGrid">
-            <label title="Local high-water time nearest the anchoring period.">HW time
+            <label title="Local high-water time nearest the anchoring period. Use local time from a tide table for the anchorage or nearest standard port.">HW time
               <span class="inputWithUnit"><input id="hwTime" type="time" value="15:00"><span>local</span></span>
             </label>
-            <label title="Local low-water time nearest the anchoring period.">LW time
+            <label title="Local low-water time nearest the anchoring period. The app interpolates between LW and HW using the rule of twelfths.">LW time
               <span class="inputWithUnit"><input id="lwTime" type="time" value="09:00"><span>local</span></span>
             </label>
-            <label title="Predicted high-water height above chart datum. Used for worst-case rode and drag checks.">HW height
+            <label title="Predicted high-water height above chart datum. Used for deepest-water rode geometry and anchor-drag checks.">HW height
               <span class="inputWithUnit"><input id="hwHeight" type="number" value="4" min="-2" max="15" step="0.1"><span>m</span></span>
             </label>
-            <label title="Predicted low-water height above chart datum. Used for grounding checks.">LW height
+            <label title="Predicted low-water height above chart datum. Used for grounding and minimum keel-clearance checks.">LW height
               <span class="inputWithUnit"><input id="lwHeight" type="number" value="1" min="-2" max="15" step="0.1"><span>m</span></span>
             </label>
           </div>
@@ -156,38 +156,42 @@
         </div>
         <section class="inputPanel settingsPanel" aria-label="Boat settings">
           <div class="inputGrid settingsGrid">
-            <label title="Length overall. Used by the wind-load estimate.">Boat LOA
+            <label title="Length overall. Used as a simple scale for estimated windage area and underwater area.">Boat LOA
               <span class="inputWithUnit"><input id="loa" type="number" value="10.1" min="2" max="40" step="0.1"><span>m</span></span>
             </label>
-            <label title="Boat draft. Used for keel clearance and echo-sounder conversion.">Draft
+            <label title="Boat draft from waterline to bottom of keel. Used for keel clearance, diagram scale, and echo-sounder conversion.">Draft
               <span class="inputWithUnit"><input id="draft" type="number" value="1.8" min="0" max="8" step="0.1"><span>m</span></span>
             </label>
-            <label title="Minimum acceptable depth beneath keel at low water.">Minimum clearance
+            <label title="Minimum acceptable depth beneath keel at low water. The app warns if the predicted low-water clearance is below this.">Minimum clearance
               <span class="inputWithUnit"><input id="minClearance" type="number" value="0.5" min="0" max="5" step="0.1"><span>m</span></span>
             </label>
-            <label title="Height of the bow roller above the water. Added to water depth for rode geometry.">Height of bow
+            <label title="Height of the bow roller above the water. Added to water depth because rode runs from seabed to bow roller, not just to the surface.">Height of bow
               <span class="inputWithUnit"><input id="bowHeight" type="number" value="1" min="0" max="5" step="0.1"><span>m</span></span>
             </label>
-            <label title="Total chain carried in the rode.">Chain length
+            <label title="Total chain carried before any rope. The app draws chain first and then rope after this length.">Chain length
               <span class="inputWithUnit"><input id="chainLength" type="number" value="50" min="0" max="200" step="1"><span>m</span></span>
             </label>
-            <label title="Total rope carried after the chain.">Rope length
+            <label title="Total rope carried after the chain. The app warns when rope lies on the seabed because of chafe risk.">Rope length
               <span class="inputWithUnit"><input id="ropeLength" type="number" value="50" min="0" max="200" step="1"><span>m</span></span>
             </label>
-            <label title="Chain weight per metre. Used for estimated catenary and lift weight.">Chain weight
+            <label title="In-water approximation of chain weight per metre. Heavier chain increases catenary and helps keep pull more horizontal.">Chain weight
               <span class="inputWithUnit"><input id="chainWeight" type="number" value="1.4" min="0" max="10" step="0.1"><span>kg/m</span></span>
             </label>
-            <label title="Rope weight per metre. Used for the combined chain/rope catenary estimate.">Rope weight
+            <label title="Approximate rope weight per metre. Rope is much lighter than chain, so it contributes little to catenary.">Rope weight
               <span class="inputWithUnit"><input id="ropeWeight" type="number" value="0.12" min="0" max="2" step="0.01"><span>kg/m</span></span>
             </label>
-            <label title="Anchor weight. Used in the lift-weight estimate.">Anchor weight
+            <label title="Anchor weight. Used only in the displayed lift-weight estimate, not as holding power.">Anchor weight
               <span class="inputWithUnit"><input id="anchorWeight" type="number" value="15" min="0" max="100" step="1"><span>kg</span></span>
             </label>
-            <label title="Approximate ultimate holding capacity for this anchor in ideal seabed with near-horizontal pull.">Anchor UHC
+            <label title="Approximate ultimate holding capacity in ideal seabed with near-horizontal pull. Real holding can be much lower in weed, rock, very soft mud, poor set, or an upward pull.">Anchor UHC
               <span class="inputWithUnit"><input id="anchorUhc" type="number" value="420" min="0" max="10000" step="10"><span>kgf</span></span>
             </label>
-            <label title="Approximate underwater drag area multiplier for tidal-stream force.">Underwater drag factor
-              <span class="inputWithUnit"><input id="underwaterDragFactor" type="number" value="0.35" min="0" max="2" step="0.05"><span>CdA</span></span>
+            <label title="Estimated underwater drag area as LOA times draft times this factor. Increase for fuller hulls, exposed keel/rudder, or strong cross-stream presentation.">Underwater drag factor
+              <span class="inputWithUnit"><input id="underwaterDragFactor" type="number" value="0.35" min="0" max="2" step="0.05"><span>factor</span></span>
+            </label>
+            <label title="Estimated above-water windage area as LOA squared times this factor. Default 0.34 gives roughly 520 kgf at 30 kn for a 10.1 m boat, matching the conservative anchoring example discussed.">
+              Windage factor
+              <span class="inputWithUnit"><input id="windageFactor" type="number" value="0.34" min="0" max="2" step="0.01"><span>factor</span></span>
             </label>
             <label class="checkboxLabel" title="When checked, the echo reading is beneath the keel and the app adds draft to get water depth. When unchecked, the echo reading is already water depth from the surface.">
               <input id="echoMeasuresBelowKeel" type="checkbox" checked>
@@ -222,7 +226,7 @@
         <div class="panelHeader">
           <div>
             <h2>Wind Force</h2>
-            <p>Estimated load from the workbook: force kg = LOA squared times wind squared divided by 500.</p>
+            <p>Estimated load from windage area and wind speed squared.</p>
           </div>
         </div>
         <section class="forceGrid">
@@ -246,17 +250,17 @@
           </div>
         </div>
         <section class="formulaList">
-          <div><strong>Wind force</strong><code>(1 / 500) * LOA^2 * windSpeed^2</code></div>
+          <div><strong>Wind force</strong><code>0.0165 * (LOA^2 * windageFactor) * windSpeed^2</code></div>
           <div><strong>Depth now</strong><code>chartedDepth + tideRiseNow</code></div>
           <div><strong>Measured depth now</strong><code>echoReading + draft when sounder is below-keel</code></div>
           <div><strong>Keel clearance</strong><code>selectedDepth - draft</code></div>
           <div><strong>Tidal-stream load</strong><code>13.2 * LOA * draft * underwaterDragFactor * tidalStream^2</code></div>
           <div><strong>HW-set rode</strong><code>chosenRodeLength</code></div>
           <div><strong>Displayed scope</strong><code>rodeLength / (selectedDepth + bowHeight)</code></div>
-          <div><strong>Amount on seabed</strong><code>rodeLength - selectedDepth - bowHeight</code></div>
+          <div><strong>Amount on seabed</strong><code>min(rodeLength, chainLength + ropeLength) - selectedDepth - bowHeight</code></div>
           <div><strong>Estimated catenary</strong><code>chain and rope solved as separate catenary sections from anchor to bow</code></div>
           <div><strong>Anchor drag check</strong><code>horizontalLoad &lt; anchorUHC * angleHoldingFactor(HW pull angle)</code></div>
-          <div><strong>Rope on seabed at LW</strong><code>max(lowWaterSeabedRode - chainLength, 0)</code></div>
+          <div><strong>Rope on seabed at LW</strong><code>lowWater catenary surplus rope lying on seabed</code></div>
           <div><strong>Weight to lift</strong><code>anchorWeight + liftedChain * chainWeight + liftedRope * ropeWeight</code></div>
         </section>
       </section>

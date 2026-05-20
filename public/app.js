@@ -1,4 +1,4 @@
-const webVersion = "0.2.0";
+const webVersion = "0.3.0";
 
 const defaults = {
   windSpeed: 40,
@@ -19,6 +19,7 @@ const defaults = {
   ropeWeight: 0.12,
   anchorWeight: 15,
   anchorUhc: 420,
+  windageFactor: 0.34,
   underwaterDragFactor: 0.35
 };
 
@@ -126,6 +127,11 @@ function chartedDepthFor(input, tideHeight = input.tideHeight) {
 function calculateTidalForce(input) {
   const underwaterArea = Math.max(0, input.loa * input.draft * input.underwaterDragFactor);
   return 13.2 * underwaterArea * input.tidalStream ** 2;
+}
+
+function calculateWindForce(input, windSpeed = input.windSpeed) {
+  const projectedWindageArea = Math.max(0, input.loa * input.loa * input.windageFactor);
+  return 0.0165 * projectedWindageArea * windSpeed ** 2;
 }
 
 function anchorAngleHoldingFactor(angleRadians) {
@@ -308,7 +314,7 @@ function anchorMarginAtHighWaterLoad(input, depthLw, horizontalLoad) {
 
 function calculateWindDragLimit(input, depthLw) {
   const tidalForce = calculateTidalForce(input);
-  const windForceNow = (1 / 500) * input.loa * input.loa * input.windSpeed * input.windSpeed;
+  const windForceNow = calculateWindForce(input);
 
   if (anchorMarginAtHighWaterLoad(input, depthLw, tidalForce) <= 0) {
     return {
@@ -332,7 +338,7 @@ function calculateWindDragLimit(input, depthLw) {
 
   return {
     maxWindForceBeforeDrag: low,
-    maxWindSpeedBeforeDrag: Math.sqrt((low * 500) / Math.max(0.1, input.loa * input.loa)),
+    maxWindSpeedBeforeDrag: Math.sqrt(low / Math.max(0.001, 0.0165 * input.loa * input.loa * input.windageFactor)),
     windForceMarginBeforeDrag: low - windForceNow
   };
 }
@@ -354,7 +360,7 @@ function calculateForDepth(input, depthLw) {
   const highWaterVerticalDrop = highWaterDepth + input.bowHeight;
   const amountOnSeabed = Math.max(0, deployedRode - verticalDrop);
   const lowWaterAmountOnSeabed = Math.max(0, deployedRode - lowWaterVerticalDrop);
-  const windForce = (1 / 500) * input.loa * input.loa * input.windSpeed * input.windSpeed;
+  const windForce = calculateWindForce(input);
   const tidalForce = calculateTidalForce(input);
   const horizontalLoad = windForce + tidalForce;
   const chainDeployed = Math.min(deployedRode, input.chainLength);
@@ -434,10 +440,10 @@ function calculateIdealRode(input = currentInputs()) {
   const verticalDrop = Math.max(0.1, hwDepth + input.bowHeight);
   const totalRode = input.chainLength + input.ropeLength;
   const wind = input.windSpeed;
-  const windForce = (1 / 500) * input.loa * input.loa * wind * wind;
+  const windForce = calculateWindForce(input, wind);
   const tidalForce = calculateTidalForce(input);
   const horizontalLoad = windForce + tidalForce;
-  const equivalentWind = Math.sqrt((horizontalLoad * 500) / Math.max(0.1, input.loa * input.loa));
+  const equivalentWind = Math.sqrt(horizontalLoad / Math.max(0.001, 0.0165 * input.loa * input.loa * input.windageFactor));
   let desired = 3;
 
   if (equivalentWind > 15) desired = 4;
@@ -803,7 +809,7 @@ function renderForceTable() {
   const rows = speeds.map((speed) => [
     `${speed} kn`,
     fmt(input.loa, 1, " m"),
-    fmt((1 / 500) * input.loa * input.loa * speed * speed, 0, " kg")
+    fmt(calculateWindForce(input, speed), 0, " kg")
   ]);
   renderTable("forceTable", ["Wind speed", "LOA", "Force"], rows, (row) => row[0] === `${Math.round(input.windSpeed / 10) * 10} kn`);
 }
@@ -822,7 +828,7 @@ function renderForceChart() {
   target.innerHTML = "";
   const points = [20, 30, 40, 50, 60, 70].map((speed) => ({
     speed,
-    force: (1 / 500) * input.loa * input.loa * speed * speed
+    force: calculateWindForce(input, speed)
   }));
   const maxForce = Math.max(...points.map((point) => point.force), 1);
   const left = 64;

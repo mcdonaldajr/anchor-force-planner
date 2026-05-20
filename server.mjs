@@ -6,7 +6,7 @@ const root = process.cwd();
 const publicDir = join(root, "public");
 const port = Number(process.env.PORT || 4184);
 const host = process.env.HOST || "127.0.0.1";
-const serverVersion = "0.2.0";
+const serverVersion = "0.3.0";
 const serverStartedAt = new Date().toISOString();
 
 const contentTypes = {
