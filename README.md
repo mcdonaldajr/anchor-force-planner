@@ -8,6 +8,8 @@ Use **Save settings** to make the current planner, tide, and boat settings the d
 
 Boat Settings includes whether the echo sounder reports depth beneath the keel or actual water depth from the surface.
 
+The anchor drag check uses the entered anchor UHC as ideal near-horizontal holding, then reduces it for the estimated high-water pull angle before comparing it with wind plus tidal-stream load.
+
 ## Quick Start
 
 ```sh

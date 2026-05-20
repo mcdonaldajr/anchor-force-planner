@@ -16,6 +16,7 @@ const defaults = {
   chainWeight: 1.4,
   ropeWeight: 0.12,
   anchorWeight: 15,
+  anchorUhc: 420,
   underwaterDragFactor: 0.35
 };
 
@@ -113,6 +114,12 @@ function chartedDepthFor(input, tideHeight = input.tideHeight) {
 function calculateTidalForce(input) {
   const underwaterArea = Math.max(0, input.loa * input.draft * input.underwaterDragFactor);
   return 13.2 * underwaterArea * input.tidalStream ** 2;
+}
+
+function anchorAngleHoldingFactor(angleRadians) {
+  const angleDegrees = Math.abs(angleRadians * 180 / Math.PI);
+  const angleLoss = Math.max(0.15, 1 - angleDegrees / 45);
+  return Math.max(0.15, Math.min(1, Math.cos(angleRadians) ** 2 * angleLoss));
 }
 
 function catenarySegment(weight, length, horizontalLoad, startingVerticalLoad = 0, samples = 14) {
@@ -273,6 +280,10 @@ function calculateForDepth(input, depthLw) {
   const catenary = calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
   const lowWaterCatenary = calculateCatenary(input, lowWaterVerticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
   const highWaterCatenary = calculateCatenary(input, highWaterVerticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
+  const highWaterAnchorAngle = highWaterCatenary.anchorAngle;
+  const anchorHoldingFactor = anchorAngleHoldingFactor(highWaterAnchorAngle);
+  const effectiveAnchorHolding = input.anchorUhc * anchorHoldingFactor;
+  const anchorHoldingMargin = effectiveAnchorHolding - horizontalLoad;
   const shortfall = Math.max(0, rodeLength - totalRode);
   const lowWaterClearance = lowWaterDepth - input.draft;
   const keelClearance = currentDepth - input.draft;
@@ -297,6 +308,10 @@ function calculateForDepth(input, depthLw) {
     lowWaterChainOnSeabed: lowWaterCatenary.chainOnSeabed,
     highWaterChainLifted: highWaterCatenary.chainLifted,
     highWaterChainOnSeabed: highWaterCatenary.chainOnSeabed,
+    highWaterAnchorAngle,
+    anchorHoldingFactor,
+    effectiveAnchorHolding,
+    anchorHoldingMargin,
     liftWeight: catenary.liftWeight,
     windForce,
     tidalForce,
@@ -487,6 +502,18 @@ function statusText(result) {
       text: `Rode is longer than available rode by ${fmt(result.shortfall, 1, " m")}.`
     };
   }
+  if (result.anchorHoldingMargin < 0) {
+    return {
+      level: "danger",
+      text: `Anchor drag risk at high water: estimated holding is ${fmt(result.effectiveAnchorHolding, 0, " kgf")} against ${fmt(result.horizontalLoad, 0, " kgf")} load.`
+    };
+  }
+  if (result.anchorHoldingMargin < result.horizontalLoad * 0.25) {
+    return {
+      level: "warning",
+      text: `Anchor holding margin is low at high water: about ${fmt(result.anchorHoldingMargin, 0, " kgf")} after pull-angle allowance.`
+    };
+  }
   if (result.ropeOnSeabed > 0) {
     return {
       level: "warning",
@@ -515,6 +542,7 @@ function updateSummary(result) {
   document.getElementById("liftWeight").textContent = fmt(result.liftWeight, 1, " kg");
   document.getElementById("ropeSeabed").textContent = fmt(result.ropeOnSeabed, 1, " m");
   document.getElementById("chainSeabed").textContent = fmt(result.chainOnSeabed, 1, " m");
+  document.getElementById("anchorMargin").textContent = fmt(result.anchorHoldingMargin, 0, " kgf");
 
   const status = statusText(result);
   const banner = document.getElementById("statusBanner");
