@@ -1,3 +1,5 @@
+const webVersion = "0.2.0";
+
 const defaults = {
   windSpeed: 40,
   tidalStream: 1.0,
@@ -50,6 +52,16 @@ function fmt(value, digits = 1, suffix = "") {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
   })}${suffix}`;
+}
+
+function fmtDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  });
 }
 
 function currentInputs() {
@@ -851,6 +863,22 @@ function renderAll() {
   renderForceChart();
 }
 
+async function renderAbout() {
+  document.getElementById("webVersion").textContent = webVersion;
+  try {
+    const response = await fetch("/api/version");
+    if (!response.ok) throw new Error("Version endpoint failed");
+    const data = await response.json();
+    document.getElementById("serverVersion").textContent = data.serverVersion || "-";
+    document.getElementById("serverAddress").textContent = `${data.host || location.hostname}:${data.port || location.port || "4184"}`;
+    document.getElementById("serverStarted").textContent = fmtDateTime(data.startedAt);
+  } catch {
+    document.getElementById("serverVersion").textContent = "Unavailable";
+    document.getElementById("serverAddress").textContent = location.host || "-";
+    document.getElementById("serverStarted").textContent = "-";
+  }
+}
+
 document.querySelectorAll(".tabButton").forEach((button) => {
   button.addEventListener("click", () => {
     const tab = button.dataset.tab;
@@ -926,4 +954,5 @@ document.getElementById("stopServer").addEventListener("click", async () => {
 
 applySettings(savedSettings() || {});
 renderAll();
+renderAbout();
 setInterval(renderAll, 60 * 1000);

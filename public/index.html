@@ -32,6 +32,7 @@
         <button class="tabButton" type="button" data-tab="scope">Depth Sweep</button>
         <button class="tabButton" type="button" data-tab="force">Wind Force</button>
         <button class="tabButton" type="button" data-tab="formulas">Formulas</button>
+        <button class="tabButton" type="button" data-tab="about">About</button>
       </nav>
 
       <section id="plannerPanel" class="tabPanel active">
@@ -257,6 +258,21 @@
           <div><strong>Anchor drag check</strong><code>horizontalLoad &lt; anchorUHC * angleHoldingFactor(HW pull angle)</code></div>
           <div><strong>Rope on seabed at LW</strong><code>max(lowWaterSeabedRode - chainLength, 0)</code></div>
           <div><strong>Weight to lift</strong><code>anchorWeight + liftedChain * chainWeight + liftedRope * ropeWeight</code></div>
+        </section>
+      </section>
+
+      <section id="aboutPanel" class="tabPanel">
+        <div class="panelHeader">
+          <div>
+            <h2>About</h2>
+            <p>Version details for checking the app running on this machine.</p>
+          </div>
+        </div>
+        <section class="aboutGrid" aria-label="App version details">
+          <div><span>Web version</span><strong id="webVersion">-</strong></div>
+          <div><span>Server version</span><strong id="serverVersion">-</strong></div>
+          <div><span>Server address</span><strong id="serverAddress">-</strong></div>
+          <div><span>Server started</span><strong id="serverStarted">-</strong></div>
         </section>
       </section>
     </main>

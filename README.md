@@ -10,6 +10,8 @@ Boat Settings includes whether the echo sounder reports depth beneath the keel o
 
 The anchor drag check uses the entered anchor UHC as ideal near-horizontal holding, then reduces it for the estimated high-water pull angle before comparing it with wind plus tidal-stream load.
 
+The **About** tab shows the web and server version numbers so you can check whether a Lubuntu machine has the latest pull.
+
 ## Quick Start
 
 ```sh

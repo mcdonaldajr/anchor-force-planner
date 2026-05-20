@@ -410,6 +410,35 @@ input[readonly] {
   margin-bottom: 7px;
 }
 
+.aboutGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  max-width: 720px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--line);
+}
+
+.aboutGrid div {
+  background: #fff;
+  padding: 12px;
+  min-height: 72px;
+}
+
+.aboutGrid span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.aboutGrid strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 20px;
+}
+
 .tideSummary {
   display: grid;
   grid-template-columns: repeat(4, minmax(140px, 1fr));
@@ -606,6 +635,7 @@ code {
   .inputGrid,
   .settingsGrid,
   .depthCompare,
+  .aboutGrid,
   .summary,
   .tideSummary,
   .formulaList div {
