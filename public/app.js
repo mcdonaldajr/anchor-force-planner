@@ -372,10 +372,13 @@ function calculateForDepth(input, depthLw) {
     totalRode,
     amountOnSeabed,
     lowWaterAmountOnSeabed,
-    ropeOnSeabed: lowWaterCatenary.ropeOnSeabed,
+    ropeOnSeabed: catenary.ropeOnSeabed,
+    lowWaterRopeOnSeabed: lowWaterCatenary.ropeOnSeabed,
     chainLifted: catenary.chainLifted,
     chainOnSeabed: catenary.chainOnSeabed,
     ropeDeployed: catenary.ropeDeployed,
+    ropeLifted: catenary.ropeLifted,
+    rodeOnSeabed: catenary.rodeOnSeabed,
     lowWaterChainLifted: lowWaterCatenary.chainLifted,
     lowWaterChainOnSeabed: lowWaterCatenary.chainOnSeabed,
     highWaterChainLifted: highWaterCatenary.chainLifted,
@@ -588,10 +591,10 @@ function statusText(result) {
       text: `Anchor holding margin is low at high water: about ${fmt(result.anchorHoldingMargin, 0, " kgf")} after pull-angle allowance.`
     };
   }
-  if (result.ropeOnSeabed > 0) {
+  if (result.lowWaterRopeOnSeabed > 0) {
     return {
       level: "warning",
-      text: `${fmt(result.ropeOnSeabed, 1, " m")} of rope is on the seabed at low water. Check abrasion and chafe risk.`
+      text: `${fmt(result.lowWaterRopeOnSeabed, 1, " m")} of rope is on the seabed at low water. Check abrasion and chafe risk.`
     };
   }
   if (result.highWaterChainOnSeabed < 5) {
@@ -649,9 +652,9 @@ function svg(tag, attrs = {}, children = []) {
   return el;
 }
 
-function pathFromPhysicalPoints(points, anchorX, seabedY, scale, chainOnSeabed, start = 0, end = points.length) {
+function pathFromPhysicalPoints(points, anchorX, seabedY, scale, seabedOffset, start = 0, end = points.length) {
   return points.slice(start, end).map((point, index) => {
-    const x = anchorX - (chainOnSeabed + point.x) * scale;
+    const x = anchorX - (seabedOffset + point.x) * scale;
     const y = seabedY - point.y * scale;
     return `${index === 0 ? "M" : "L"}${round(x, 2)} ${round(y, 2)}`;
   }).join(" ");
@@ -699,13 +702,15 @@ function renderDiagram(result, mode = diagramMode) {
   const labelX = Math.min(anchorX - 170, Math.max(bowX + 120, bowX + horizontalReach * scale * 0.48));
   const rodeMidY = (bowPointY + anchorY) / 2 - 10;
   const ropeDeployed = result.ropeDeployed;
-  const chainDeployed = Math.min(result.rodeLength, input.chainLength);
-  const chainTouchDownX = anchorX - result.chainOnSeabed * scale;
-  const rodeTouchDownX = anchorX - result.rodeOnSeabed * scale;
+  const ropeLifted = result.ropeLifted || 0;
+  const chainDeployed = Math.min(result.deployedRode, input.chainLength);
+  const chainSeabedEndX = anchorX - result.chainOnSeabed * scale;
+  const liftedStartOffset = result.chainOnSeabed + result.ropeOnSeabed;
+  const liftedStartX = anchorX - liftedStartOffset * scale;
   const hwBowX = anchorX - hwResult.horizontalReach * scale;
-  const hasRopeDeployed = ropeDeployed > 0.05;
-  const chainPath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.rodeOnSeabed, 0, result.catenarySpliceIndex + 1);
-  const ropePath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.rodeOnSeabed, result.catenarySpliceIndex, result.catenaryPoints.length);
+  const hasRopeLifted = ropeLifted > 0.05;
+  const chainPath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.chainOnSeabed, 0, result.catenarySpliceIndex + 1);
+  const ropePath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, liftedStartOffset, result.catenarySpliceIndex, result.catenaryPoints.length);
   const anchorAngleDeg = Math.abs(result.anchorAngle * 180 / Math.PI);
   const catenaryLabel = result.lowLoadCatenary
     ? `${modeLabel}: calm layout, rope drawn straight`
@@ -732,10 +737,10 @@ function renderDiagram(result, mode = diagramMode) {
     svg("line", { x1: keelClearanceLineX - 6, y1: seabedY, x2: keelClearanceLineX + 6, y2: seabedY, stroke: keelClearanceColor, "stroke-width": 2 }),
     svg("text", { x: keelClearanceLineX + 10, y: Math.min(seabedY - 8, Math.max(waterY + 16, keelClearanceMidY + 4)), fill: keelClearanceColor, "font-size": 12, "font-weight": 700 }, [document.createTextNode(`${modeLabel} ${fmt(result.keelClearance, 1, " m")}`)]),
     svg("circle", { cx: bowX, cy: bowPointY, r: 5, fill: "#17212b" }),
-    ...(chainDeployed > 0 ? [svg("path", { d: chainPath, fill: "none", stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "3 7" })] : []),
-    ...(hasRopeDeployed ? [svg("path", { d: ropePath, fill: "none", stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "10 7" })] : []),
-    ...(result.ropeOnSeabed > 0.05 ? [svg("line", { x1: rodeTouchDownX, y1: seabedY + 8, x2: chainTouchDownX, y2: seabedY + 8, stroke: "#c77a16", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "10 7", opacity: 0.9 })] : []),
-    ...(result.chainOnSeabed > 0.05 ? [svg("line", { x1: chainTouchDownX, y1: seabedY + 4, x2: anchorX, y2: seabedY + 4, stroke: "#2f3b44", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "3 7", opacity: 0.9 })] : []),
+    ...(result.chainLifted > 0.05 ? [svg("path", { d: chainPath, fill: "none", stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "3 7" })] : []),
+    ...(hasRopeLifted ? [svg("path", { d: ropePath, fill: "none", stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "10 7" })] : []),
+    ...(result.ropeOnSeabed > 0.05 ? [svg("line", { x1: liftedStartX, y1: seabedY + 8, x2: chainSeabedEndX, y2: seabedY + 8, stroke: "#c77a16", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "10 7", opacity: 0.9 })] : []),
+    ...(result.chainOnSeabed > 0.05 ? [svg("line", { x1: chainSeabedEndX, y1: seabedY + 4, x2: anchorX, y2: seabedY + 4, stroke: "#2f3b44", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "3 7", opacity: 0.9 })] : []),
     svg("path", { d: `M${anchorX - 20} ${anchorY - 18} L${anchorX} ${anchorY} L${anchorX + 24} ${anchorY - 12} M${anchorX} ${anchorY} L${anchorX + 2} ${anchorY - 34}`, stroke: "#17212b", "stroke-width": 5, fill: "none", "stroke-linecap": "round" }),
     svg("text", { x: labelX, y: rodeMidY, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`Rode ${fmt(result.rodeLength, 1, " m")} / scope ${fmt(result.scopeRatio, 1, ":1")}`)]),
     svg("text", { x: labelX, y: rodeMidY + 18, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(catenaryLabel)]),
