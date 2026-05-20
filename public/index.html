@@ -47,13 +47,16 @@
               <label>Wind speed
                 <span class="inputWithUnit"><input id="windSpeed" type="number" value="40" min="0" max="90" step="1"><span>kn</span></span>
               </label>
+              <label>Tidal stream
+                <span class="inputWithUnit"><input id="tidalStream" type="number" value="1.0" min="0" max="8" step="0.1"><span>kn</span></span>
+              </label>
               <label>Charted depth
                 <span class="inputWithUnit"><input id="depthLw" type="number" value="5" min="0" max="40" step="0.1"><span>m</span></span>
               </label>
               <label>Depth sounder reading at LW
                 <span class="inputWithUnit"><input id="sounderLw" type="number" value="3.8" min="-5" max="40" step="0.1"><span>m</span></span>
               </label>
-              <label>Current tide rise
+              <label>Tide rise now
                 <span class="inputWithUnit"><input id="tideHeight" type="text" value="3.0" readonly><span>m</span></span>
               </label>
               <label>Rode length
@@ -66,7 +69,7 @@
             <section id="scopeRecommendation" class="recommendationPanel" aria-live="polite">
               <span>Recommended rode</span>
               <strong>-</strong>
-              <p>Use the button to calculate a recommendation from the current conditions and boat settings.</p>
+              <p>Use the button to calculate a recommendation from the conditions now and boat settings.</p>
               <button id="applyIdealRode" type="button">Apply rode</button>
             </section>
           </section>
@@ -75,12 +78,14 @@
             <div id="statusBanner" class="statusBanner">-</div>
             <section class="summary" aria-label="Summary values">
               <div><span>Wind force</span><strong id="windForce">-</strong></div>
+              <div><span>Tidal load</span><strong id="tidalForce">-</strong></div>
               <div><span>Rode set</span><strong id="rodeNeeded">-</strong></div>
-              <div><span>Rode available</span><strong id="rodeAvailable">-</strong></div>
+              <div><span>Keel clearance now</span><strong id="clearanceNow">-</strong></div>
               <div><span>Scope now</span><strong id="scopeNow">-</strong></div>
-              <div><span>On seabed at LW</span><strong id="seabedLength">-</strong></div>
+              <div><span>Chain on seabed at LW</span><strong id="seabedLength">-</strong></div>
               <div><span>Max lift weight</span><strong id="liftWeight">-</strong></div>
               <div><span>Rope on seabed</span><strong id="ropeSeabed">-</strong></div>
+              <div><span>Chain on seabed</span><strong id="chainSeabed">-</strong></div>
             </section>
 
             <section class="visualPanel" aria-label="Anchor geometry">
@@ -99,7 +104,7 @@
         <div class="panelHeader">
           <div>
             <h2>Tide</h2>
-            <p>Enter local tide data for the anchorage. Current rise is estimated with the rule of twelfths.</p>
+            <p>Enter local tide data for the anchorage. Tide rise now is estimated with the rule of twelfths.</p>
           </div>
         </div>
         <section class="inputPanel settingsPanel" aria-label="Tide settings">
@@ -119,9 +124,9 @@
           </div>
         </section>
         <section id="tideSummary" class="tideSummary" aria-live="polite">
-          <div><span>Current time</span><strong id="currentTimeLabel">-</strong></div>
-          <div><span>Current rise</span><strong id="currentRiseLabel">-</strong></div>
-          <div><span>Current depth</span><strong id="currentDepthLabel">-</strong></div>
+          <div><span>Time now</span><strong id="currentTimeLabel">-</strong></div>
+          <div><span>Tide rise now</span><strong id="currentRiseLabel">-</strong></div>
+          <div><span>Keel clearance now</span><strong id="currentDepthLabel">-</strong></div>
           <div><span>Low-water clearance</span><strong id="lowWaterClearanceLabel">-</strong></div>
         </section>
         <section id="tideStatus" class="statusBanner">-</section>
@@ -162,6 +167,9 @@
             </label>
             <label>Anchor weight
               <span class="inputWithUnit"><input id="anchorWeight" type="number" value="15" min="0" max="100" step="1"><span>kg</span></span>
+            </label>
+            <label>Underwater drag factor
+              <span class="inputWithUnit"><input id="underwaterDragFactor" type="number" value="0.35" min="0" max="2" step="0.05"><span>CdA</span></span>
             </label>
           </div>
         </section>
@@ -217,10 +225,13 @@
         </div>
         <section class="formulaList">
           <div><strong>Wind force</strong><code>(1 / 500) * LOA^2 * windSpeed^2</code></div>
-          <div><strong>Current depth</strong><code>chartedDepth + currentTideRise</code></div>
+          <div><strong>Depth now</strong><code>chartedDepth + tideRiseNow</code></div>
+          <div><strong>Keel clearance</strong><code>selectedDepth - draft</code></div>
+          <div><strong>Tidal-stream load</strong><code>13.2 * LOA * draft * underwaterDragFactor * tidalStream^2</code></div>
           <div><strong>HW-set rode</strong><code>chosenRodeLength</code></div>
           <div><strong>Displayed scope</strong><code>rodeLength / (selectedDepth + bowHeight)</code></div>
           <div><strong>Amount on seabed</strong><code>rodeLength - selectedDepth - bowHeight</code></div>
+          <div><strong>Estimated chain catenary</strong><code>suspendedChain ~= sqrt(depthToBow^2 + 2 * (horizontalLoad / chainWeight) * depthToBow)</code></div>
           <div><strong>Rope on seabed at LW</strong><code>max(lowWaterSeabedRode - chainLength, 0)</code></div>
           <div><strong>Weight to lift</strong><code>anchorWeight + min(selectedDepth + bowHeight, chainLength) * chainWeight</code></div>
         </section>

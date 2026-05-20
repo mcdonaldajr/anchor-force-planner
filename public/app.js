@@ -1,5 +1,6 @@
 const defaults = {
   windSpeed: 40,
+  tidalStream: 1.0,
   loa: 10.1,
   draft: 1.8,
   minClearance: 0.5,
@@ -14,7 +15,8 @@ const defaults = {
   chainLength: 50,
   ropeLength: 50,
   chainWeight: 1.4,
-  anchorWeight: 15
+  anchorWeight: 15,
+  underwaterDragFactor: 0.35
 };
 
 const timeDefaults = {
@@ -51,6 +53,30 @@ function currentInputs() {
   return Object.fromEntries(ids.map((id) => [id, number(id)]));
 }
 
+function calculateTidalForce(input) {
+  const underwaterArea = Math.max(0, input.loa * input.draft * input.underwaterDragFactor);
+  return 13.2 * underwaterArea * input.tidalStream ** 2;
+}
+
+function calculateCatenary(input, verticalDrop, chainDeployed, horizontalLoad) {
+  const chainWeight = Math.max(0.01, input.chainWeight);
+  const load = Math.max(0.01, horizontalLoad);
+  const a = load / chainWeight;
+  const suspendedNeeded = Math.sqrt(Math.max(0, verticalDrop ** 2 + 2 * a * verticalDrop));
+  const chainLifted = Math.min(chainDeployed, suspendedNeeded);
+  const chainOnSeabed = Math.max(0, chainDeployed - chainLifted);
+  const liftWeight = input.anchorWeight + chainLifted * input.chainWeight;
+  const catenaryReach = a * Math.acosh(1 + verticalDrop / a);
+
+  return {
+    a,
+    catenaryReach,
+    chainLifted,
+    chainOnSeabed,
+    liftWeight
+  };
+}
+
 function timeMinutes(id) {
   const [hours, minutes] = (document.getElementById(id).value || "00:00").split(":").map(Number);
   return (Number.isFinite(hours) ? hours : 0) * 60 + (Number.isFinite(minutes) ? minutes : 0);
@@ -66,11 +92,15 @@ function calculateForDepth(input, depthLw) {
   const amountOnSeabed = Math.max(0, rodeLength - verticalDrop);
   const lowWaterAmountOnSeabed = Math.max(0, rodeLength - lowWaterVerticalDrop);
   const ropeOnSeabed = Math.max(0, lowWaterAmountOnSeabed - input.chainLength);
-  const chainLifted = Math.min(verticalDrop, input.chainLength);
-  const liftWeight = input.anchorWeight + chainLifted * input.chainWeight;
   const windForce = (1 / 500) * input.loa * input.loa * input.windSpeed * input.windSpeed;
+  const tidalForce = calculateTidalForce(input);
+  const horizontalLoad = windForce + tidalForce;
+  const chainDeployed = Math.min(rodeLength, input.chainLength);
+  const catenary = calculateCatenary(input, verticalDrop, chainDeployed, horizontalLoad);
+  const lowWaterCatenary = calculateCatenary(input, lowWaterVerticalDrop, chainDeployed, horizontalLoad);
   const shortfall = Math.max(0, rodeLength - totalRode);
   const lowWaterClearance = lowWaterDepth - input.draft;
+  const keelClearance = currentDepth - input.draft;
   const clearanceMargin = lowWaterClearance - input.minClearance;
 
   return {
@@ -86,10 +116,18 @@ function calculateForDepth(input, depthLw) {
     amountOnSeabed,
     lowWaterAmountOnSeabed,
     ropeOnSeabed,
-    chainLifted,
-    liftWeight,
+    chainLifted: catenary.chainLifted,
+    chainOnSeabed: catenary.chainOnSeabed,
+    lowWaterChainLifted: lowWaterCatenary.chainLifted,
+    lowWaterChainOnSeabed: lowWaterCatenary.chainOnSeabed,
+    liftWeight: catenary.liftWeight,
     windForce,
+    tidalForce,
+    horizontalLoad,
+    catenaryReach: catenary.catenaryReach,
+    catenaryA: catenary.a,
     shortfall,
+    keelClearance,
     lowWaterClearance,
     clearanceMargin
   };
@@ -121,18 +159,22 @@ function calculateIdealRode(input = currentInputs()) {
   if (wind > 55) desired = 8;
   if (wind > 65) desired = 9;
   if (input.hwHeight >= 4 || hwDepth >= 10) desired += 0.5;
+  if (input.tidalStream >= 1) desired += 0.5;
+  if (input.tidalStream >= 2) desired += 0.5;
+  if (input.tidalStream >= 3) desired += 0.5;
 
   const idealLength = desired * verticalDrop;
   const recommended = round(Math.min(idealLength, totalRode), 0);
   const result = calculateForDepth({ ...input, rodeLength: recommended, tideHeight: input.hwHeight }, depthLw);
   const notes = [];
 
-  notes.push(`${fmt(wind, 0, " kn")} wind starts the HW recommendation at ${fmt(desired, 1, ":1")}.`);
+  notes.push(`${fmt(wind, 0, " kn")} wind sets the HW recommendation at ${fmt(desired, 1, ":1")}.`);
+  if (input.tidalStream > 0) notes.push(`${fmt(input.tidalStream, 1, " kn")} tidal stream is included in that target.`);
   if (idealLength > totalRode) notes.push(`Available rode caps this at ${fmt(totalRode, 1, " m")}.`);
   if (result.ropeOnSeabed > 0 && input.ropeLength > 0) {
     notes.push(`This may put about ${fmt(result.ropeOnSeabed, 1, " m")} of rope on the seabed at low water.`);
   } else {
-    notes.push("Keeps the seabed section on chain at low water with the current settings.");
+    notes.push("Keeps the seabed section on chain at low water with these settings.");
   }
 
   return {
@@ -155,7 +197,7 @@ function clearIdealRodeRecommendation() {
   const panel = document.getElementById("scopeRecommendation");
   panel.classList.remove("hasRecommendation");
   panel.querySelector("strong").textContent = "-";
-  panel.querySelector("p").textContent = "Use the button to calculate a recommendation from the current conditions and boat settings.";
+  panel.querySelector("p").textContent = "Use the button to calculate a recommendation from the conditions now and boat settings.";
 }
 
 function syncDepth(source) {
@@ -217,10 +259,12 @@ function currentTide() {
     : before.height - (before.height - after.height) * fraction;
   const currentDepth = input.depthLw + height;
   const lowWaterDepth = input.depthLw + input.lwHeight;
+  const keelClearance = currentDepth - input.draft;
   const lowWaterClearance = lowWaterDepth - input.draft;
   return {
     height,
     currentDepth,
+    keelClearance,
     lowWaterDepth,
     lowWaterClearance,
     clearanceMargin: lowWaterClearance - input.minClearance,
@@ -236,7 +280,7 @@ function updateTideSummary() {
   document.getElementById("tideHeight").value = round(tide.height, 1);
   document.getElementById("currentTimeLabel").textContent = formatClock(tide.now);
   document.getElementById("currentRiseLabel").textContent = `${fmt(tide.height, 1, " m")} ${tide.phase.toLowerCase()}`;
-  document.getElementById("currentDepthLabel").textContent = fmt(tide.currentDepth, 1, " m");
+  document.getElementById("currentDepthLabel").textContent = fmt(tide.keelClearance, 1, " m");
   document.getElementById("lowWaterClearanceLabel").textContent = fmt(tide.lowWaterClearance, 1, " m");
 
   const status = document.getElementById("tideStatus");
@@ -278,26 +322,28 @@ function statusText(result) {
       text: `${fmt(result.ropeOnSeabed, 1, " m")} of rope is on the seabed at low water. Check abrasion and chafe risk.`
     };
   }
-  if (result.lowWaterAmountOnSeabed < 10) {
+  if (result.lowWaterChainOnSeabed < 5) {
     return {
       level: "warning",
-      text: `Only ${fmt(result.lowWaterAmountOnSeabed, 1, " m")} of rode is lying on the seabed at low water.`
+      text: `Estimated catenary leaves only ${fmt(result.lowWaterChainOnSeabed, 1, " m")} of chain on the seabed at low water.`
     };
   }
   return {
     level: "good",
-    text: `Rode length is within available rode, with ${fmt(result.lowWaterAmountOnSeabed, 1, " m")} lying on the seabed at low water.`
+    text: `Rode length is within available rode, with about ${fmt(result.lowWaterChainOnSeabed, 1, " m")} of chain on the seabed at low water.`
   };
 }
 
 function updateSummary(result) {
   document.getElementById("windForce").textContent = fmt(result.windForce, 0, " kg");
+  document.getElementById("tidalForce").textContent = fmt(result.tidalForce, 0, " kg");
   document.getElementById("rodeNeeded").textContent = fmt(result.rodeLength, 1, " m");
-  document.getElementById("rodeAvailable").textContent = fmt(result.totalRode, 1, " m");
+  document.getElementById("clearanceNow").textContent = fmt(result.keelClearance, 1, " m");
   document.getElementById("scopeNow").textContent = fmt(result.scopeRatio, 1, ":1");
-  document.getElementById("seabedLength").textContent = fmt(result.lowWaterAmountOnSeabed, 1, " m");
+  document.getElementById("seabedLength").textContent = fmt(result.lowWaterChainOnSeabed, 1, " m");
   document.getElementById("liftWeight").textContent = fmt(result.liftWeight, 1, " kg");
   document.getElementById("ropeSeabed").textContent = fmt(result.ropeOnSeabed, 1, " m");
+  document.getElementById("chainSeabed").textContent = fmt(result.chainOnSeabed, 1, " m");
 
   const status = statusText(result);
   const banner = document.getElementById("statusBanner");
@@ -310,6 +356,21 @@ function svg(tag, attrs = {}, children = []) {
   Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
   children.forEach((child) => el.appendChild(child));
   return el;
+}
+
+function catenaryPath(x1, y1, x2, y2, aPx) {
+  const run = Math.max(1, x2 - x1);
+  const drop = y2 - y1;
+  if (drop <= 1 || run <= 4 || !Number.isFinite(aPx) || aPx <= 1) return `M${x1} ${y1} L${x2} ${y2}`;
+  const u = Math.acosh(1 + drop / aPx);
+  const divisor = Math.max(0.001, Math.cosh(u) - 1);
+  const points = Array.from({ length: 18 }, (_, index) => {
+    const t = index / 17;
+    const x = x1 + run * t;
+    const y = y1 + drop * ((Math.cosh(u * t) - 1) / divisor);
+    return `${index === 0 ? "M" : "L"}${round(x, 2)} ${round(y, 2)}`;
+  });
+  return points.join(" ");
 }
 
 function renderDiagram(result, mode = diagramMode) {
@@ -348,7 +409,6 @@ function renderDiagram(result, mode = diagramMode) {
   const keelBottomY = waterY + draftPx;
   const keelHalfWidth = Math.max(8, Math.min(20, boatLengthPx * 0.11));
   const keelHitsBottom = keelBottomY >= seabedY;
-  const boatTotalHeight = input.bowHeight + input.draft;
   const labelX = Math.min(anchorX - 170, Math.max(bowX + 120, bowX + horizontalReach * scale * 0.48));
   const rodeMidY = (bowPointY + anchorY) / 2 - 10;
   const ropeDeployed = Math.max(0, result.rodeLength - input.chainLength);
@@ -356,12 +416,15 @@ function renderDiagram(result, mode = diagramMode) {
   const chainStartRatio = result.rodeLength > 0 ? ropeDeployed / result.rodeLength : 0;
   const chainStartX = bowX + (anchorX - bowX) * chainStartRatio;
   const chainStartY = bowPointY + (anchorY - bowPointY) * chainStartRatio;
-  const chainOnSeabed = Math.min(result.amountOnSeabed, input.chainLength);
   const ropeOnSeabedStartX = anchorX - result.amountOnSeabed * scale;
-  const chainOnSeabedStartX = anchorX - chainOnSeabed * scale;
+  const chainOnSeabedStartX = Math.max(chainStartX, anchorX - result.chainOnSeabed * scale);
   const hwBowX = anchorX - hwResult.horizontalReach * scale;
   const hasRopeDeployed = ropeDeployed > 0.05;
   const hasRopeOnSeabed = result.amountOnSeabed - input.chainLength > 0.05;
+  const chainPath = catenaryPath(chainStartX, chainStartY, chainOnSeabedStartX, seabedY, result.catenaryA * scale);
+  const sternDistance = horizontalReach + input.loa;
+  const distanceY = seabedY + 60;
+  const distanceStartX = Math.max(18, boatSternX);
 
   target.append(
     svg("rect", { x: 0, y: waterY, width, height: seabedY - waterY, fill: "#dbeef7" }),
@@ -375,8 +438,8 @@ function renderDiagram(result, mode = diagramMode) {
     ] : []),
     svg("line", { x1: bowX - 43, y1: waterY, x2: bowX - 29, y2: waterY, stroke: "#1f6f8b", "stroke-width": 2 }),
     svg("line", { x1: bowX - 43, y1: seabedY, x2: bowX - 29, y2: seabedY, stroke: "#1f6f8b", "stroke-width": 2 }),
-    svg("text", { x: 18, y: Math.max(18, waterY - 10), fill: "#5f6c76", "font-size": 13 }, [document.createTextNode(`${modeLabel} depth ${fmt(result.depthHw, 1, " m")}`)]),
-    svg("text", { x: 18, y: lowWaterY - 8, fill: "#4f7f99", "font-size": 12 }, [document.createTextNode(`LW depth ${fmt(result.depthLw, 1, " m")}`)]),
+    svg("text", { x: 18, y: Math.max(18, waterY - 10), fill: "#5f6c76", "font-size": 13 }, [document.createTextNode(`${modeLabel} keel clearance ${fmt(result.keelClearance, 1, " m")}`)]),
+    svg("text", { x: 18, y: lowWaterY - 8, fill: "#4f7f99", "font-size": 12 }, [document.createTextNode(`LW keel clearance ${fmt(result.lowWaterClearance, 1, " m")}`)]),
     svg("text", { x: bowX - 26, y: (waterY + seabedY) / 2, fill: "#1f6f8b", "font-size": 12, transform: `rotate(-90 ${bowX - 26} ${(waterY + seabedY) / 2})` }, [document.createTextNode(fmt(result.depthHw, 1, " m"))]),
     svg("path", { d: `M${boatSternX} ${sternDeckY} L${bowX - 6} ${bowDeckY} L${bowX + 22} ${bowPointY} L${bowX - 10} ${waterY + draftPx * 0.08} L${boatSternX + 22} ${hullBottomY} Z`, fill: "#ffffff", stroke: "#17212b", "stroke-width": 2 }),
     svg("path", { d: `M${keelCenterX - keelHalfWidth} ${keelTopY} L${keelCenterX + keelHalfWidth} ${keelTopY} L${keelCenterX + keelHalfWidth * 0.55} ${keelBottomY} L${keelCenterX - keelHalfWidth * 0.55} ${keelBottomY} Z`, fill: keelHitsBottom ? "#d76c6c" : "#6f7f8a", stroke: "#17212b", "stroke-width": 2, opacity: 0.95 }),
@@ -385,20 +448,22 @@ function renderDiagram(result, mode = diagramMode) {
     svg("line", { x1: keelCenterX + keelHalfWidth + 6, y1: keelBottomY, x2: keelCenterX + keelHalfWidth + 18, y2: keelBottomY, stroke: keelHitsBottom ? "#b44444" : "#5f6c76", "stroke-width": 2 }),
     svg("circle", { cx: bowX, cy: bowPointY, r: 5, fill: "#17212b" }),
     ...(hasRopeDeployed ? [svg("line", { x1: bowX, y1: bowPointY, x2: chainStartX, y2: chainStartY, stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-dasharray": "10 7" })] : []),
-    ...(chainDeployed > 0 ? [svg("line", { x1: chainStartX, y1: chainStartY, x2: anchorX, y2: anchorY, stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "3 7" })] : []),
+    ...(chainDeployed > 0 ? [svg("path", { d: chainPath, fill: "none", stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "3 7" })] : []),
     ...(hasRopeOnSeabed ? [svg("line", { x1: ropeOnSeabedStartX, y1: seabedY + 4, x2: chainOnSeabedStartX, y2: seabedY + 4, stroke: "#c77a16", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "10 7", opacity: 0.9 })] : []),
     svg("line", { x1: chainOnSeabedStartX, y1: seabedY + 4, x2: anchorX, y2: seabedY + 4, stroke: "#2f3b44", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "3 7", opacity: 0.9 }),
     svg("path", { d: `M${anchorX - 20} ${anchorY - 18} L${anchorX} ${anchorY} L${anchorX + 24} ${anchorY - 12} M${anchorX} ${anchorY} L${anchorX + 2} ${anchorY - 34}`, stroke: "#17212b", "stroke-width": 5, fill: "none", "stroke-linecap": "round" }),
-    svg("text", { x: Math.max(160, bowX + 28), y: waterY - 28, fill: "#17212b", "font-size": 13, "font-weight": 700 }, [document.createTextNode(`${modeLabel}: bow ${fmt(input.bowHeight, 1, " m")} + draft ${fmt(input.draft, 1, " m")}`)]),
     svg("text", { x: keelCenterX + keelHalfWidth + 20, y: Math.min(keelBottomY + 16, seabedY - 8), fill: keelHitsBottom ? "#8f2222" : "#17212b", "font-size": 12 }, [document.createTextNode(`draft ${fmt(input.draft, 1, " m")}`)]),
-    svg("text", { x: Math.max(160, bowX + 28), y: waterY - 12, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(`boat height approx ${fmt(boatTotalHeight, 1, " m")}`)]),
     svg("text", { x: labelX, y: rodeMidY, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`Rode ${fmt(result.rodeLength, 1, " m")} / scope ${fmt(result.scopeRatio, 1, ":1")}`)]),
+    svg("text", { x: labelX, y: rodeMidY + 18, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(`estimated catenary: ${fmt(result.chainLifted, 1, " m")} chain lifted`)]),
     svg("line", { x1: 588, y1: 34, x2: 636, y2: 34, stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "3 7" }),
     svg("text", { x: 644, y: 38, fill: "#17212b", "font-size": 12 }, [document.createTextNode(`chain ${fmt(Math.min(input.chainLength, result.rodeLength), 1, " m")}`)]),
     svg("line", { x1: 588, y1: 54, x2: 636, y2: 54, stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-dasharray": "10 7" }),
     svg("text", { x: 644, y: 58, fill: "#17212b", "font-size": 12 }, [document.createTextNode(`rope ${fmt(ropeDeployed, 1, " m")}`)]),
-    svg("text", { x: Math.max(bowX + 10, lowWaterTouchX + 10), y: seabedY + 28, fill: "#17212b", "font-size": 13 }, [document.createTextNode(`${fmt(result.amountOnSeabed, 1, " m")} on seabed at ${modeLabel}`)]),
-    svg("text", { x: 18, y: seabedY + 56, fill: "#5f4b2c", "font-size": 13 }, [document.createTextNode(`Available: ${fmt(result.totalRode, 1, " m")} (${fmt(input.chainLength, 0, " m")} chain + ${fmt(input.ropeLength, 0, " m")} rope)`)]) 
+    svg("text", { x: Math.max(bowX + 10, lowWaterTouchX + 10), y: seabedY + 28, fill: "#17212b", "font-size": 13 }, [document.createTextNode(`${fmt(result.chainOnSeabed, 1, " m")} chain on seabed`)]),
+    svg("line", { x1: distanceStartX, y1: distanceY, x2: anchorX, y2: distanceY, stroke: "#7a6a45", "stroke-width": 2 }),
+    svg("line", { x1: distanceStartX, y1: distanceY - 5, x2: distanceStartX, y2: distanceY + 5, stroke: "#7a6a45", "stroke-width": 2 }),
+    svg("line", { x1: anchorX, y1: distanceY - 5, x2: anchorX, y2: distanceY + 5, stroke: "#7a6a45", "stroke-width": 2 }),
+    svg("text", { x: Math.max(18, Math.min(anchorX - 190, distanceStartX + 12)), y: distanceY - 8, fill: "#5f4b2c", "font-size": 13 }, [document.createTextNode(`anchor to stern ${fmt(sternDistance, 1, " m")}`)])
   );
 }
 
@@ -421,14 +486,14 @@ function renderScopeTable(result) {
     return [
       fmt(depth, 0, " m"),
       fmt(depth + input.lwHeight, 1, " m"),
-      fmt(rowResult.depthHw, 1, " m"),
+      fmt(rowResult.keelClearance, 1, " m"),
       fmt(rowResult.rodeLength, 1, " m"),
-      fmt(rowResult.amountOnSeabed, 1, " m"),
+      fmt(rowResult.chainOnSeabed, 1, " m"),
       fmt(rowResult.ropeOnSeabed, 1, " m"),
       fmt(rowResult.liftWeight, 1, " kg")
     ];
   });
-  renderTable("scopeTable", ["Charted depth", "Depth @ LW", "Current depth", "Rode length", "On seabed now", "Rope on seabed LW", "Weight to lift"], rows, (_, index) => index + 1 === Math.round(result.chartedDepth));
+  renderTable("scopeTable", ["Charted depth", "Depth @ LW", "Keel clearance now", "Rode length", "Chain on seabed now", "Rope on seabed LW", "Weight to lift"], rows, (_, index) => index + 1 === Math.round(result.chartedDepth));
 }
 
 function renderForceTable() {
