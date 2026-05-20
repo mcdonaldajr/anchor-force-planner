@@ -24,11 +24,13 @@ const timeDefaults = {
   lwTime: "09:00"
 };
 
+const savedSettingsKey = "anchorForcePlanner.settings.v1";
 const ids = Object.keys(defaults);
 const allInputIds = [...ids, ...Object.keys(timeDefaults)];
 let depthSource = "chart";
 let idealRode = null;
 let diagramMode = "now";
+let saveSettingsTimer = null;
 
 function number(id) {
   const value = Number(document.getElementById(id).value);
@@ -50,6 +52,46 @@ function fmt(value, digits = 1, suffix = "") {
 
 function currentInputs() {
   return Object.fromEntries(ids.map((id) => [id, number(id)]));
+}
+
+function currentSettings() {
+  return {
+    inputs: Object.fromEntries(ids.map((id) => [id, document.getElementById(id).value])),
+    times: Object.fromEntries(Object.keys(timeDefaults).map((id) => [id, document.getElementById(id).value])),
+    depthSource
+  };
+}
+
+function savedSettings() {
+  try {
+    const raw = localStorage.getItem(savedSettingsKey);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function applySettings(settings = {}) {
+  Object.entries({ ...defaults, ...(settings.inputs || {}) }).forEach(([id, value]) => {
+    const input = document.getElementById(id);
+    if (input) input.value = value;
+  });
+  Object.entries({ ...timeDefaults, ...(settings.times || {}) }).forEach(([id, value]) => {
+    const input = document.getElementById(id);
+    if (input) input.value = value;
+  });
+  depthSource = settings.depthSource === "sounder" ? "sounder" : "chart";
+  document.querySelectorAll(".depthSourceButton").forEach((item) => item.classList.toggle("active", item.dataset.depthSource === depthSource));
+}
+
+function saveCurrentSettings() {
+  localStorage.setItem(savedSettingsKey, JSON.stringify(currentSettings()));
+  const button = document.getElementById("saveDefaults");
+  button.textContent = "Saved";
+  clearTimeout(saveSettingsTimer);
+  saveSettingsTimer = setTimeout(() => {
+    button.textContent = "Save settings";
+  }, 1600);
 }
 
 function chartDepthNow(input) {
@@ -736,15 +778,12 @@ document.getElementById("applyIdealRode").addEventListener("click", () => {
   showIdealRodeRecommendation(idealRode);
 });
 
+document.getElementById("saveDefaults").addEventListener("click", () => {
+  saveCurrentSettings();
+});
+
 document.getElementById("resetDefaults").addEventListener("click", () => {
-  Object.entries(defaults).forEach(([id, value]) => {
-    document.getElementById(id).value = value;
-  });
-  Object.entries(timeDefaults).forEach(([id, value]) => {
-    document.getElementById(id).value = value;
-  });
-  depthSource = "chart";
-  document.querySelectorAll(".depthSourceButton").forEach((item) => item.classList.toggle("active", item.dataset.depthSource === depthSource));
+  applySettings(savedSettings() || {});
   idealRode = null;
   clearIdealRodeRecommendation();
   renderAll();
@@ -758,5 +797,6 @@ document.getElementById("stopServer").addEventListener("click", async () => {
   }
 });
 
+applySettings(savedSettings() || {});
 renderAll();
 setInterval(renderAll, 60 * 1000);
