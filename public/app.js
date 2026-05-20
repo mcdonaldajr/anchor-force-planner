@@ -211,10 +211,12 @@ function timeMinutes(id) {
 
 function calculateForDepth(input, depthLw) {
   const lowWaterDepth = depthLw + input.lwHeight;
+  const highWaterDepth = depthLw + input.hwHeight;
   const currentDepth = depthLw + input.tideHeight;
   const rodeLength = input.rodeLength;
   const verticalDrop = currentDepth + input.bowHeight;
   const lowWaterVerticalDrop = lowWaterDepth + input.bowHeight;
+  const highWaterVerticalDrop = highWaterDepth + input.bowHeight;
   const totalRode = input.chainLength + input.ropeLength;
   const amountOnSeabed = Math.max(0, rodeLength - verticalDrop);
   const lowWaterAmountOnSeabed = Math.max(0, rodeLength - lowWaterVerticalDrop);
@@ -225,6 +227,7 @@ function calculateForDepth(input, depthLw) {
   const ropeDeployed = Math.max(0, rodeLength - input.chainLength);
   const catenary = calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
   const lowWaterCatenary = calculateCatenary(input, lowWaterVerticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
+  const highWaterCatenary = calculateCatenary(input, highWaterVerticalDrop, chainDeployed, ropeDeployed, horizontalLoad);
   const shortfall = Math.max(0, rodeLength - totalRode);
   const lowWaterClearance = lowWaterDepth - input.draft;
   const keelClearance = currentDepth - input.draft;
@@ -247,6 +250,8 @@ function calculateForDepth(input, depthLw) {
     ropeDeployed: catenary.ropeDeployed,
     lowWaterChainLifted: lowWaterCatenary.chainLifted,
     lowWaterChainOnSeabed: lowWaterCatenary.chainOnSeabed,
+    highWaterChainLifted: highWaterCatenary.chainLifted,
+    highWaterChainOnSeabed: highWaterCatenary.chainOnSeabed,
     liftWeight: catenary.liftWeight,
     windForce,
     tidalForce,
@@ -443,15 +448,15 @@ function statusText(result) {
       text: `${fmt(result.ropeOnSeabed, 1, " m")} of rope is on the seabed at low water. Check abrasion and chafe risk.`
     };
   }
-  if (result.lowWaterChainOnSeabed < 5) {
+  if (result.highWaterChainOnSeabed < 5) {
     return {
       level: "warning",
-      text: `Estimated catenary leaves only ${fmt(result.lowWaterChainOnSeabed, 1, " m")} of chain on the seabed at low water.`
+      text: `Estimated catenary leaves only ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed at high water.`
     };
   }
   return {
     level: "good",
-    text: `Rode length is within available rode, with about ${fmt(result.lowWaterChainOnSeabed, 1, " m")} of chain on the seabed at low water.`
+    text: `Rode length is within available rode, with about ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed at high water.`
   };
 }
 
@@ -461,7 +466,7 @@ function updateSummary(result) {
   document.getElementById("rodeNeeded").textContent = fmt(result.rodeLength, 1, " m");
   document.getElementById("clearanceNow").textContent = fmt(result.keelClearance, 1, " m");
   document.getElementById("scopeNow").textContent = fmt(result.scopeRatio, 1, ":1");
-  document.getElementById("seabedLength").textContent = fmt(result.lowWaterChainOnSeabed, 1, " m");
+  document.getElementById("seabedLength").textContent = fmt(result.highWaterChainOnSeabed, 1, " m");
   document.getElementById("liftWeight").textContent = fmt(result.liftWeight, 1, " kg");
   document.getElementById("ropeSeabed").textContent = fmt(result.ropeOnSeabed, 1, " m");
   document.getElementById("chainSeabed").textContent = fmt(result.chainOnSeabed, 1, " m");
