@@ -183,6 +183,10 @@
             <label>Underwater drag factor
               <span class="inputWithUnit"><input id="underwaterDragFactor" type="number" value="0.35" min="0" max="2" step="0.05"><span>CdA</span></span>
             </label>
+            <label class="checkboxLabel">
+              <input id="echoMeasuresBelowKeel" type="checkbox" checked>
+              <span>Echo sounder measures depth beneath keel</span>
+            </label>
           </div>
         </section>
         <section class="tableWrap narrowTable settingsTable">
@@ -238,7 +242,7 @@
         <section class="formulaList">
           <div><strong>Wind force</strong><code>(1 / 500) * LOA^2 * windSpeed^2</code></div>
           <div><strong>Depth now</strong><code>chartedDepth + tideRiseNow</code></div>
-          <div><strong>Measured depth now</strong><code>echoBelowKeel + draft</code></div>
+          <div><strong>Measured depth now</strong><code>echoReading + draft when sounder is below-keel</code></div>
           <div><strong>Keel clearance</strong><code>selectedDepth - draft</code></div>
           <div><strong>Tidal-stream load</strong><code>13.2 * LOA * draft * underwaterDragFactor * tidalStream^2</code></div>
           <div><strong>HW-set rode</strong><code>chosenRodeLength</code></div>

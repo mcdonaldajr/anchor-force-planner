@@ -6,6 +6,8 @@ It calculates anchor wind load, tidal-stream load, HW-set rode length, per-tide-
 
 Use **Save settings** to make the current planner, tide, and boat settings the defaults for this browser.
 
+Boat Settings includes whether the echo sounder reports depth beneath the keel or actual water depth from the surface.
+
 ## Quick Start
 
 ```sh

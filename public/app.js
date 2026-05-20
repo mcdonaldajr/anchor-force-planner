@@ -27,6 +27,7 @@ const timeDefaults = {
 const savedSettingsKey = "anchorForcePlanner.settings.v1";
 const ids = Object.keys(defaults);
 const allInputIds = [...ids, ...Object.keys(timeDefaults)];
+const checkboxIds = ["echoMeasuresBelowKeel"];
 let depthSource = "chart";
 let idealRode = null;
 let diagramMode = "now";
@@ -57,6 +58,7 @@ function currentInputs() {
 function currentSettings() {
   return {
     inputs: Object.fromEntries(ids.map((id) => [id, document.getElementById(id).value])),
+    checkboxes: Object.fromEntries(checkboxIds.map((id) => [id, document.getElementById(id).checked])),
     times: Object.fromEntries(Object.keys(timeDefaults).map((id) => [id, document.getElementById(id).value])),
     depthSource
   };
@@ -80,6 +82,7 @@ function applySettings(settings = {}) {
     const input = document.getElementById(id);
     if (input) input.value = value;
   });
+  document.getElementById("echoMeasuresBelowKeel").checked = settings.checkboxes?.echoMeasuresBelowKeel ?? true;
   depthSource = settings.depthSource === "sounder" ? "sounder" : "chart";
   document.querySelectorAll(".depthSourceButton").forEach((item) => item.classList.toggle("active", item.dataset.depthSource === depthSource));
 }
@@ -99,7 +102,7 @@ function chartDepthNow(input) {
 }
 
 function sounderDepthNow(input) {
-  return input.echoBelowKeel + input.draft;
+  return input.echoBelowKeel + (document.getElementById("echoMeasuresBelowKeel").checked ? input.draft : 0);
 }
 
 function chartedDepthFor(input, tideHeight = input.tideHeight) {
@@ -760,6 +763,14 @@ document.querySelectorAll(".depthSourceButton").forEach((button) => {
 
 allInputIds.forEach((id) => {
   document.getElementById(id).addEventListener("input", () => {
+    idealRode = null;
+    clearIdealRodeRecommendation();
+    renderAll();
+  });
+});
+
+checkboxIds.forEach((id) => {
+  document.getElementById(id).addEventListener("change", () => {
     idealRode = null;
     clearIdealRodeRecommendation();
     renderAll();

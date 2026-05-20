@@ -218,6 +218,25 @@ label {
   font-size: 13px;
 }
 
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  padding: 7px 9px;
+  color: var(--ink);
+}
+
+.checkboxLabel input {
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  accent-color: var(--water);
+}
+
 .inputWithUnit {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 48px;
