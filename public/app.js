@@ -88,6 +88,52 @@ function combinedVerticalRise(input, chainLifted, ropeDeployed, horizontalLoad, 
 function calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, horizontalLoad) {
   const maxChainLifted = Math.max(0, chainDeployed);
   const ropeLength = Math.max(0, ropeDeployed);
+
+  if (horizontalLoad < 1) {
+    if (ropeLength > 0) {
+      const ropeHorizontal = Math.sqrt(Math.max(0, ropeLength ** 2 - verticalDrop ** 2));
+      return {
+        chainA: Infinity,
+        ropeA: Infinity,
+        chainLifted: 0,
+        chainOnSeabed: maxChainLifted,
+        ropeDeployed: ropeLength,
+        ropeOnSeabed: 0,
+        anchorAngle: 0,
+        horizontalReach: maxChainLifted + ropeHorizontal,
+        liftedPoints: [
+          { x: 0, y: 0 },
+          { x: ropeHorizontal, y: verticalDrop }
+        ],
+        spliceIndex: 0,
+        liftWeight: input.anchorWeight + ropeLength * input.ropeWeight,
+        reachesBow: true,
+        lowLoad: true
+      };
+    }
+
+    const chainLifted = Math.min(maxChainLifted, verticalDrop);
+    const chainOnSeabed = Math.max(0, maxChainLifted - chainLifted);
+    return {
+      chainA: Infinity,
+      ropeA: Infinity,
+      chainLifted,
+      chainOnSeabed,
+      ropeDeployed: 0,
+      ropeOnSeabed: 0,
+      anchorAngle: Math.PI / 2,
+      horizontalReach: chainOnSeabed,
+      liftedPoints: [
+        { x: 0, y: 0 },
+        { x: 0, y: chainLifted }
+      ],
+      spliceIndex: 1,
+      liftWeight: input.anchorWeight + chainLifted * input.chainWeight,
+      reachesBow: chainLifted >= verticalDrop,
+      lowLoad: true
+    };
+  }
+
   let low = 0;
   let high = maxChainLifted;
   let startingVerticalLoad = 0;
@@ -136,12 +182,14 @@ function calculateCatenary(input, verticalDrop, chainDeployed, ropeDeployed, hor
     chainLifted,
     chainOnSeabed,
     ropeDeployed: ropeLength,
+    ropeOnSeabed: 0,
     anchorAngle: Math.atan2(startingVerticalLoad, Math.max(0.01, horizontalLoad)),
     horizontalReach,
     liftedPoints,
     spliceIndex: Math.max(0, chain.points.length - 1),
     liftWeight,
-    reachesBow: fullRise >= verticalDrop
+    reachesBow: fullRise >= verticalDrop,
+    lowLoad: false
   };
 }
 
@@ -159,7 +207,6 @@ function calculateForDepth(input, depthLw) {
   const totalRode = input.chainLength + input.ropeLength;
   const amountOnSeabed = Math.max(0, rodeLength - verticalDrop);
   const lowWaterAmountOnSeabed = Math.max(0, rodeLength - lowWaterVerticalDrop);
-  const ropeOnSeabed = Math.max(0, lowWaterAmountOnSeabed - input.chainLength);
   const windForce = (1 / 500) * input.loa * input.loa * input.windSpeed * input.windSpeed;
   const tidalForce = calculateTidalForce(input);
   const horizontalLoad = windForce + tidalForce;
@@ -184,7 +231,7 @@ function calculateForDepth(input, depthLw) {
     totalRode,
     amountOnSeabed,
     lowWaterAmountOnSeabed,
-    ropeOnSeabed,
+    ropeOnSeabed: lowWaterCatenary.ropeOnSeabed,
     chainLifted: catenary.chainLifted,
     chainOnSeabed: catenary.chainOnSeabed,
     ropeDeployed: catenary.ropeDeployed,
@@ -197,6 +244,7 @@ function calculateForDepth(input, depthLw) {
     catenaryPoints: catenary.liftedPoints,
     catenarySpliceIndex: catenary.spliceIndex,
     anchorAngle: catenary.anchorAngle,
+    lowLoadCatenary: catenary.lowLoad,
     chainA: catenary.chainA,
     ropeA: catenary.ropeA,
     shortfall,
@@ -485,7 +533,9 @@ function renderDiagram(result, mode = diagramMode) {
   const chainPath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.chainOnSeabed, 0, result.catenarySpliceIndex + 1);
   const ropePath = pathFromPhysicalPoints(result.catenaryPoints, anchorX, seabedY, scale, result.chainOnSeabed, result.catenarySpliceIndex, result.catenaryPoints.length);
   const anchorAngleDeg = Math.abs(result.anchorAngle * 180 / Math.PI);
-  const catenaryLabel = result.chainOnSeabed > 0.05
+  const catenaryLabel = result.lowLoadCatenary
+    ? `${modeLabel}: calm layout, rope drawn straight`
+    : result.chainOnSeabed > 0.05
     ? `${modeLabel} catenary: ${fmt(result.chainLifted, 1, " m")} chain lifted`
     : `${modeLabel} catenary: chain fully lifted, anchor angle ${fmt(anchorAngleDeg, 0, " deg")}`;
   const sternDistance = horizontalReach + input.loa;
