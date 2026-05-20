@@ -552,10 +552,16 @@ function updateSummary(result) {
 
 function updateDepthComparison() {
   const input = currentInputs();
+  const echoIsBelowKeel = document.getElementById("echoMeasuresBelowKeel").checked;
   const chartDepth = chartDepthNow(input);
   const measuredDepth = sounderDepthNow(input);
   const difference = measuredDepth - chartDepth;
 
+  const label = document.getElementById("echoDepthLabel");
+  label.childNodes[0].nodeValue = echoIsBelowKeel ? "Echo below keel now\n                " : "Echo water depth now\n                ";
+  label.title = echoIsBelowKeel
+    ? "Echo sounder reading now as depth beneath the keel. The app adds draft to get water depth."
+    : "Echo sounder reading now as actual water depth from the surface. Draft is not added.";
   document.getElementById("chartDepthNow").textContent = fmt(chartDepth, 1, " m");
   document.getElementById("sounderDepthNow").textContent = fmt(measuredDepth, 1, " m");
   document.getElementById("depthDifference").textContent = `${difference >= 0 ? "+" : ""}${fmt(difference, 1, " m")}`;
