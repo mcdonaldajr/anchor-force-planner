@@ -523,6 +523,9 @@ function renderDiagram(result, mode = diagramMode) {
   const keelBottomY = waterY + draftPx;
   const keelHalfWidth = Math.max(8, Math.min(20, boatLengthPx * 0.11));
   const keelHitsBottom = keelBottomY >= seabedY;
+  const keelClearanceLineX = keelCenterX + keelHalfWidth + 14;
+  const keelClearanceMidY = (keelBottomY + seabedY) / 2;
+  const keelClearanceColor = result.keelClearance < 0 ? "#b44444" : "#1f6f8b";
   const labelX = Math.min(anchorX - 170, Math.max(bowX + 120, bowX + horizontalReach * scale * 0.48));
   const rodeMidY = (bowPointY + anchorY) / 2 - 10;
   const ropeDeployed = result.ropeDeployed;
@@ -547,26 +550,21 @@ function renderDiagram(result, mode = diagramMode) {
     svg("rect", { x: 0, y: seabedY, width, height: height - seabedY, fill: "#d7c4a3" }),
     svg("line", { x1: 0, y1: waterY, x2: width, y2: waterY, stroke: "#1f6f8b", "stroke-width": 3 }),
     svg("line", { x1: 0, y1: lowWaterY, x2: width, y2: lowWaterY, stroke: "#5aa5c9", "stroke-width": 2, "stroke-dasharray": "7 6" }),
-    svg("line", { x1: bowX - 36, y1: waterY, x2: bowX - 36, y2: seabedY, stroke: "#1f6f8b", "stroke-width": 2 }),
     ...(mode !== "hw" ? [
       svg("line", { x1: hwBowX, y1: seabedY + 16, x2: bowX, y2: seabedY + 16, stroke: "#7a6a45", "stroke-width": 2, "stroke-dasharray": "5 5" }),
       svg("text", { x: Math.min(hwBowX, bowX) + 8, y: seabedY + 44, fill: "#5f4b2c", "font-size": 12 }, [document.createTextNode(`${fmt(Math.abs(moveFromHw), 1, " m")} from HW set position`)])
     ] : []),
-    svg("line", { x1: bowX - 43, y1: waterY, x2: bowX - 29, y2: waterY, stroke: "#1f6f8b", "stroke-width": 2 }),
-    svg("line", { x1: bowX - 43, y1: seabedY, x2: bowX - 29, y2: seabedY, stroke: "#1f6f8b", "stroke-width": 2 }),
-    svg("text", { x: 18, y: Math.max(18, waterY - 10), fill: "#5f6c76", "font-size": 13 }, [document.createTextNode(`${modeLabel} depth beneath keel ${fmt(result.keelClearance, 1, " m")}`)]),
-    svg("text", { x: bowX - 26, y: (waterY + seabedY) / 2, fill: "#1f6f8b", "font-size": 12, transform: `rotate(-90 ${bowX - 26} ${(waterY + seabedY) / 2})` }, [document.createTextNode(fmt(result.depthHw, 1, " m"))]),
     svg("path", { d: `M${boatSternX} ${sternDeckY} L${bowX - 6} ${bowDeckY} L${bowX + 22} ${bowPointY} L${bowX - 10} ${waterY + draftPx * 0.08} L${boatSternX + 22} ${hullBottomY} Z`, fill: "#ffffff", stroke: "#17212b", "stroke-width": 2 }),
     svg("path", { d: `M${keelCenterX - keelHalfWidth} ${keelTopY} L${keelCenterX + keelHalfWidth} ${keelTopY} L${keelCenterX + keelHalfWidth * 0.55} ${keelBottomY} L${keelCenterX - keelHalfWidth * 0.55} ${keelBottomY} Z`, fill: keelHitsBottom ? "#d76c6c" : "#6f7f8a", stroke: "#17212b", "stroke-width": 2, opacity: 0.95 }),
-    svg("line", { x1: keelCenterX + keelHalfWidth + 12, y1: waterY, x2: keelCenterX + keelHalfWidth + 12, y2: keelBottomY, stroke: keelHitsBottom ? "#b44444" : "#5f6c76", "stroke-width": 2 }),
-    svg("line", { x1: keelCenterX + keelHalfWidth + 6, y1: waterY, x2: keelCenterX + keelHalfWidth + 18, y2: waterY, stroke: keelHitsBottom ? "#b44444" : "#5f6c76", "stroke-width": 2 }),
-    svg("line", { x1: keelCenterX + keelHalfWidth + 6, y1: keelBottomY, x2: keelCenterX + keelHalfWidth + 18, y2: keelBottomY, stroke: keelHitsBottom ? "#b44444" : "#5f6c76", "stroke-width": 2 }),
+    svg("line", { x1: keelClearanceLineX, y1: keelBottomY, x2: keelClearanceLineX, y2: seabedY, stroke: keelClearanceColor, "stroke-width": 2 }),
+    svg("line", { x1: keelClearanceLineX - 6, y1: keelBottomY, x2: keelClearanceLineX + 6, y2: keelBottomY, stroke: keelClearanceColor, "stroke-width": 2 }),
+    svg("line", { x1: keelClearanceLineX - 6, y1: seabedY, x2: keelClearanceLineX + 6, y2: seabedY, stroke: keelClearanceColor, "stroke-width": 2 }),
+    svg("text", { x: keelClearanceLineX + 10, y: Math.min(seabedY - 8, Math.max(waterY + 16, keelClearanceMidY + 4)), fill: keelClearanceColor, "font-size": 12, "font-weight": 700 }, [document.createTextNode(`${modeLabel} ${fmt(result.keelClearance, 1, " m")}`)]),
     svg("circle", { cx: bowX, cy: bowPointY, r: 5, fill: "#17212b" }),
     ...(chainDeployed > 0 ? [svg("path", { d: chainPath, fill: "none", stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "3 7" })] : []),
     ...(hasRopeDeployed ? [svg("path", { d: ropePath, fill: "none", stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "10 7" })] : []),
     ...(result.chainOnSeabed > 0.05 ? [svg("line", { x1: touchDownX, y1: seabedY + 4, x2: anchorX, y2: seabedY + 4, stroke: "#2f3b44", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "3 7", opacity: 0.9 })] : []),
     svg("path", { d: `M${anchorX - 20} ${anchorY - 18} L${anchorX} ${anchorY} L${anchorX + 24} ${anchorY - 12} M${anchorX} ${anchorY} L${anchorX + 2} ${anchorY - 34}`, stroke: "#17212b", "stroke-width": 5, fill: "none", "stroke-linecap": "round" }),
-    svg("text", { x: keelCenterX + keelHalfWidth + 20, y: Math.min(keelBottomY + 16, seabedY - 8), fill: keelHitsBottom ? "#8f2222" : "#17212b", "font-size": 12 }, [document.createTextNode(`draft ${fmt(input.draft, 1, " m")}`)]),
     svg("text", { x: labelX, y: rodeMidY, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`Rode ${fmt(result.rodeLength, 1, " m")} / scope ${fmt(result.scopeRatio, 1, ":1")}`)]),
     svg("text", { x: labelX, y: rodeMidY + 18, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(catenaryLabel)]),
     svg("line", { x1: 588, y1: 34, x2: 636, y2: 34, stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "3 7" }),
