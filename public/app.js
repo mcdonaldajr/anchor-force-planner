@@ -1,4 +1,4 @@
-const webVersion = "0.5.14";
+const webVersion = "0.5.15";
 const halfCycleMinutes = 12 * 60 + 25;
 
 const defaults = {
@@ -1263,7 +1263,7 @@ function activeTideTimeline(date = new Date()) {
         minute: (corrected.timestamp - dayStart) / 60000
       };
     })
-    .filter((event) => event.minute >= -900 && event.minute <= 2340)
+    .filter((event) => event.minute >= -1500 && event.minute <= 3300)
     .sort((a, b) => a.minute - b.minute);
   return timeline.length >= 2 ? timeline : null;
 }
