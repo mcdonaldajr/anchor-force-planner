@@ -22,7 +22,28 @@ chmod +x "${APP_DIR}/scripts/start-macos.sh"
 
 cat > "$LAUNCHER" <<EOF
 #!/usr/bin/env bash
-exec "${APP_DIR}/scripts/start-macos.sh" --desktop
+set -euo pipefail
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:\${PATH:-}"
+LOG_DIR="\${HOME}/Library/Logs/Anchor Force Planner"
+APP_DIR="${APP_DIR}"
+PORT="\${PORT:-4184}"
+HOST="\${HOST:-127.0.0.1}"
+APP_URL="http://127.0.0.1:\${PORT}"
+mkdir -p "\$LOG_DIR"
+exec >>"\$LOG_DIR/launcher.log" 2>&1
+echo "\$(date): launching Anchor Force Planner"
+cd "\$APP_DIR"
+if ! curl -fsS --max-time 1 "\$APP_URL" >/dev/null 2>&1; then
+  HOST="\$HOST" PORT="\$PORT" nohup npm start >>"\$LOG_DIR/server.log" 2>&1 &
+fi
+for _ in {1..40}; do
+  if curl -fsS --max-time 1 "\$APP_URL" >/dev/null 2>&1; then
+    open "\$APP_URL"
+    exit 0
+  fi
+  sleep 0.25
+done
+open "\$APP_URL"
 EOF
 
 chmod +x "$LAUNCHER"
