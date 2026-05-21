@@ -1,8 +1,8 @@
-const webVersion = "0.5.5";
+const webVersion = "0.5.6";
 const halfCycleMinutes = 12 * 60 + 25;
 
 const defaults = {
-  windSpeed: 40,
+  windSpeed: 20,
   tidalStream: 1.0,
   loa: 10.1,
   draft: 1.2,
