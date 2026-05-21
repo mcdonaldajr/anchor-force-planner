@@ -1,4 +1,4 @@
-const webVersion = "0.4.0";
+const webVersion = "0.4.1";
 
 const defaults = {
   windSpeed: 40,
@@ -678,12 +678,13 @@ function renderSecondaryPortOptions() {
 function renderSecondaryTidePreview() {
   const port = selectedSecondaryPort();
   if (!port && serverState.tide.source === "secondary") serverState.tide.source = "oban";
+  const showSecondary = Boolean(port && serverState.tide.source === "secondary");
   const secondary = secondaryTideValues(port);
-  document.getElementById("secondaryHwTime").textContent = port ? secondary.hwTime : "-";
-  document.getElementById("secondaryLwTime").textContent = port ? secondary.lwTime : "-";
-  document.getElementById("secondaryHwHeight").textContent = port ? fmt(secondary.hwHeight, 1, " m") : "-";
-  document.getElementById("secondaryLwHeight").textContent = port ? fmt(secondary.lwHeight, 1, " m") : "-";
-  document.getElementById("calculateSecondaryTide").disabled = !port;
+  document.getElementById("secondaryHwTime").textContent = showSecondary ? secondary.hwTime : "-";
+  document.getElementById("secondaryLwTime").textContent = showSecondary ? secondary.lwTime : "-";
+  document.getElementById("secondaryHwHeight").textContent = showSecondary ? fmt(secondary.hwHeight, 1, " m") : "-";
+  document.getElementById("secondaryLwHeight").textContent = showSecondary ? fmt(secondary.lwHeight, 1, " m") : "-";
+  document.getElementById("calculateSecondaryTide").disabled = !showSecondary;
   document.querySelector('[data-tide-source="secondary"]').disabled = !port;
   document.querySelectorAll(".tideSourceButton").forEach((button) => {
     button.classList.toggle("active", button.dataset.tideSource === serverState.tide.source);

@@ -8,7 +8,7 @@ const dataDir = join(root, "data");
 const stateFile = join(dataDir, "anchor-force-state.json");
 const port = Number(process.env.PORT || 4184);
 const host = process.env.HOST || "127.0.0.1";
-const serverVersion = "0.4.0";
+const serverVersion = "0.4.1";
 const serverStartedAt = new Date().toISOString();
 
 const obanReferenceLevels = {
