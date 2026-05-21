@@ -1,4 +1,4 @@
-const webVersion = "0.5.8";
+const webVersion = "0.5.9";
 const halfCycleMinutes = 12 * 60 + 25;
 
 const defaults = {
@@ -1649,24 +1649,6 @@ function renderTable(tableId, headers, rows, highlightPredicate = () => false) {
   }).join("");
 }
 
-function renderScopeTable(result) {
-  const input = currentInputs();
-  const rows = Array.from({ length: 19 }, (_, index) => {
-    const depth = index + 1;
-    const rowResult = calculateForDepth(input, depth);
-    return [
-      fmt(depth, 0, " m"),
-      fmt(depth + input.lwHeight, 1, " m"),
-      fmt(rowResult.keelClearance, 1, " m"),
-      fmt(rowResult.rodeLength, 1, " m"),
-      fmt(rowResult.chainOnSeabed, 1, " m"),
-      fmt(rowResult.ropeOnSeabed, 1, " m"),
-      fmt(rowResult.liftWeight, 1, " kg")
-    ];
-  });
-  renderTable("scopeTable", ["Charted depth", "Depth @ LW", "Keel clearance now", "Rode length", "Chain on seabed now", "Rope on seabed LW", "Weight to lift"], rows, (_, index) => index + 1 === Math.round(result.chartedDepth));
-}
-
 function renderForceTable() {
   const input = currentInputs();
   const speeds = [20, 30, 40, 50, 60, 70];
@@ -1796,7 +1778,6 @@ function renderAll() {
   const result = calculate();
   updateSummary(result);
   renderDiagram(calculateDiagramResult(), selectedPlannerTideView());
-  renderScopeTable(result);
   renderForceTable();
   renderForceChart();
 }
