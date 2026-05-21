@@ -1,10 +1,10 @@
-const webVersion = "0.5.3";
+const webVersion = "0.5.4";
 
 const defaults = {
   windSpeed: 40,
   tidalStream: 1.0,
   loa: 10.1,
-  draft: 1.8,
+  draft: 1.2,
   minClearance: 0.5,
   depthLw: 5,
   echoBelowKeel: 6.2,
@@ -15,8 +15,13 @@ const defaults = {
   bowHeight: 1,
   chainLength: 50,
   ropeLength: 50,
+  chainDiameter: 8,
   chainWeight: 1.4,
+  chainWll: 800,
+  chainBreak: 4030,
+  ropeDiameter: 14,
   ropeWeight: 0.12,
+  ropeBreak: 0,
   anchorWeight: 15,
   anchorUhc: 420,
   windageFactor: 0.34,
@@ -59,7 +64,7 @@ let serverState = {
     stationName: "Oban",
     stationId: "0372",
     timeStandard: "UT",
-    displayTimeMode: "ut",
+    displayTimeMode: "local",
     ukhoAccountEmail: "",
     ukhoApiKeySet: false,
     events: [],
@@ -1520,14 +1525,6 @@ function renderForceTable() {
   renderTable("forceTable", ["Wind speed", "LOA", "Force"], rows, (row) => row[0] === `${Math.round(input.windSpeed / 10) * 10} kn`);
 }
 
-function renderRodeTable() {
-  const input = currentInputs();
-  renderTable("rodeTable", ["Type", "Diameter", "Weight kg/m", "Total weight", "Typical WLL", "Typical break"], [
-    ["G40 Chain", "8mm", fmt(input.chainWeight, 1), fmt(input.chainLength * input.chainWeight, 1, " kg"), "800 kgf", "4030 kgf"],
-    ["Anchorplait", "14mm", fmt(input.ropeWeight, 2), fmt(input.ropeLength * input.ropeWeight, 1, " kg"), "-", "-"]
-  ]);
-}
-
 function renderForceChart() {
   const input = currentInputs();
   const target = document.getElementById("forceChart");
@@ -1647,7 +1644,6 @@ function renderAll() {
   renderDiagram(calculateDiagramResult(), diagramMode);
   renderScopeTable(result);
   renderForceTable();
-  renderRodeTable();
   renderForceChart();
 }
 

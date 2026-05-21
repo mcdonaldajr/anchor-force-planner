@@ -6,7 +6,7 @@ It calculates anchor wind load, tidal-stream load, HW-set rode length, per-tide-
 
 Use **Save settings** to make the current planner, tide, and boat settings the defaults for this browser.
 
-Settings includes boat constants, whether the echo sounder reports depth beneath the keel or actual water depth from the surface, and system settings such as the UKHO API key and UT/local display mode.
+Settings includes boat constants, editable chain/rope reference values, whether the echo sounder reports depth beneath the keel or actual water depth from the surface, and system settings such as the UKHO API key and UT/local display mode. New installs default to local time display and 1.2 m draft.
 
 The anchor drag check uses the entered anchor UHC as ideal near-horizontal holding, then reduces it for the estimated high-water pull angle before comparing it with wind plus tidal-stream load.
 

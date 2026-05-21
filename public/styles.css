@@ -87,13 +87,6 @@ button:disabled {
   background: #b44444;
 }
 
-.topActions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
 main {
   padding: 12px 18px 22px;
 }
@@ -224,7 +217,8 @@ main {
   margin-top: 14px;
 }
 
-.systemSettingsPanel {
+.systemSettingsPanel,
+.settingsActionsPanel {
   margin-top: 14px;
 }
 

@@ -12,11 +12,6 @@
         <h1>Anchor Force Planner</h1>
         <p>Scope, load, and rode checks from Anchor Force.xlsx</p>
       </div>
-      <div class="topActions">
-        <button id="saveDefaults" type="button">Save settings</button>
-        <button id="resetDefaults" type="button">Reset defaults</button>
-        <button id="stopServer" class="dangerButton" type="button">Stop server</button>
-      </div>
     </header>
 
     <main>
@@ -324,7 +319,7 @@
               <span class="inputWithUnit"><input id="loa" type="number" value="10.1" min="2" max="40" step="0.1"><span>m</span></span>
             </label>
             <label title="Boat draft from waterline to bottom of keel. Used for keel clearance, diagram scale, and echo-sounder conversion.">Draft
-              <span class="inputWithUnit"><input id="draft" type="number" value="1.8" min="0" max="8" step="0.1"><span>m</span></span>
+              <span class="inputWithUnit"><input id="draft" type="number" value="1.2" min="0" max="8" step="0.1"><span>m</span></span>
             </label>
             <label title="Minimum acceptable depth beneath keel at low water. The app warns if the predicted low-water clearance is below this.">Minimum clearance
               <span class="inputWithUnit"><input id="minClearance" type="number" value="0.5" min="0" max="5" step="0.1"><span>m</span></span>
@@ -338,11 +333,26 @@
             <label title="Total rope carried after the chain. The app warns when rope lies on the seabed because of chafe risk.">Rope length
               <span class="inputWithUnit"><input id="ropeLength" type="number" value="50" min="0" max="200" step="1"><span>m</span></span>
             </label>
+            <label title="Chain diameter. Used for the editable ground-tackle settings and notes; the load model uses chain weight per metre.">Chain diameter
+              <span class="inputWithUnit"><input id="chainDiameter" type="number" value="8" min="0" max="20" step="1"><span>mm</span></span>
+            </label>
             <label title="In-water approximation of chain weight per metre. Heavier chain increases catenary and helps keep pull more horizontal.">Chain weight
               <span class="inputWithUnit"><input id="chainWeight" type="number" value="1.4" min="0" max="10" step="0.1"><span>kg/m</span></span>
             </label>
+            <label title="Typical chain working load limit for this chain. Stored as a boat setting for reference; anchor holding calculations still use Anchor UHC.">Chain WLL
+              <span class="inputWithUnit"><input id="chainWll" type="number" value="800" min="0" max="10000" step="10"><span>kgf</span></span>
+            </label>
+            <label title="Typical chain breaking load for this chain. Stored as a boat setting for reference.">Chain break
+              <span class="inputWithUnit"><input id="chainBreak" type="number" value="4030" min="0" max="50000" step="10"><span>kgf</span></span>
+            </label>
+            <label title="Rope diameter. Stored as a boat setting for reference; the catenary model uses rope weight per metre.">Rope diameter
+              <span class="inputWithUnit"><input id="ropeDiameter" type="number" value="14" min="0" max="40" step="1"><span>mm</span></span>
+            </label>
             <label title="Approximate rope weight per metre. Rope is much lighter than chain, so it contributes little to catenary.">Rope weight
               <span class="inputWithUnit"><input id="ropeWeight" type="number" value="0.12" min="0" max="2" step="0.01"><span>kg/m</span></span>
+            </label>
+            <label title="Typical rope breaking load. Optional reference value; enter 0 if unknown.">Rope break
+              <span class="inputWithUnit"><input id="ropeBreak" type="number" value="0" min="0" max="50000" step="10"><span>kgf</span></span>
             </label>
             <label title="Anchor weight. Used only in the displayed lift-weight estimate, not as holding power.">Anchor weight
               <span class="inputWithUnit"><input id="anchorWeight" type="number" value="15" min="0" max="100" step="1"><span>kg</span></span>
@@ -393,11 +403,13 @@
             <button id="clearTideDataKey" class="dangerButton" type="button">Clear API key</button>
           </div>
         </section>
-        <section class="tableWrap narrowTable settingsTable">
-          <table id="rodeTable">
-            <thead></thead>
-            <tbody></tbody>
-          </table>
+        <section class="inputPanel settingsPanel settingsActionsPanel" aria-label="Settings actions">
+          <h3>Settings actions</h3>
+          <div class="secondaryActions">
+            <button id="saveDefaults" type="button">Save settings</button>
+            <button id="resetDefaults" type="button">Reset settings</button>
+            <button id="stopServer" class="dangerButton" type="button">Stop server</button>
+          </div>
         </section>
       </section>
 
