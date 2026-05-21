@@ -1,4 +1,4 @@
-const webVersion = "0.5.12";
+const webVersion = "0.5.13";
 const halfCycleMinutes = 12 * 60 + 25;
 
 const defaults = {
@@ -930,26 +930,52 @@ function calculateIdealRode(input = currentInputs()) {
   if (equivalentWind > 65) desired = 9;
   if (input.hwHeight >= 4 || hwDepth >= 10) desired += 0.5;
 
-  const idealLength = desired * verticalDrop;
-  const recommended = round(Math.min(idealLength, totalRode), 0);
-  const result = calculateForDepth({ ...input, rodeLength: recommended, tideHeight: input.hwHeight }, depthLw);
+  const minimumLength = desired * verticalDrop;
+  const minimumRode = round(Math.min(minimumLength, totalRode), 0);
+  const minimumResult = calculateForDepth({ ...input, rodeLength: minimumRode, tideHeight: input.hwHeight }, depthLw);
+  const optimalTarget = 1;
+  const totalResult = calculateForDepth({ ...input, rodeLength: totalRode, tideHeight: input.hwHeight }, depthLw);
+  let optimalRode = totalRode;
+  let optimalCapped = totalResult.highWaterChainOnSeabed < optimalTarget;
+
+  if (!optimalCapped && minimumResult.highWaterChainOnSeabed >= optimalTarget) {
+    optimalRode = minimumRode;
+  } else if (!optimalCapped) {
+    let low = minimumRode;
+    let high = totalRode;
+    for (let index = 0; index < 42; index += 1) {
+      const mid = (low + high) / 2;
+      const result = calculateForDepth({ ...input, rodeLength: mid, tideHeight: input.hwHeight }, depthLw);
+      if (result.highWaterChainOnSeabed >= optimalTarget) high = mid;
+      else low = mid;
+    }
+    optimalRode = Math.ceil(high);
+  }
+
+  const optimalResult = calculateForDepth({ ...input, rodeLength: optimalRode, tideHeight: input.hwHeight }, depthLw);
   const notes = [];
 
   notes.push(`${fmt(wind, 0, " kn")} wind plus ${fmt(input.tidalStream, 1, " kn")} tidal stream gives an equivalent load of about ${fmt(equivalentWind, 0, " kn")} wind.`);
-  notes.push(`That sets the selected-HW recommendation at ${fmt(desired, 1, ":1")}.`);
-  if (idealLength > totalRode) notes.push(`Available rode caps this at ${fmt(totalRode, 1, " m")}.`);
-  if (result.highWaterChainOnSeabed < 5) {
-    notes.push(`At the selected HW, estimated catenary leaves only ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed.`);
+  notes.push(`Minimum uses ${fmt(desired, 1, ":1")} selected-HW scope from the load table.`);
+  if (minimumLength > totalRode) notes.push(`Available rode caps the minimum at ${fmt(totalRode, 1, " m")}.`);
+  if (optimalCapped) {
+    notes.push(`Optimal would need more than the carried ${fmt(totalRode, 1, " m")} to keep ${fmt(optimalTarget, 1, " m")} of chain on the seabed at selected HW.`);
   } else {
-    notes.push(`Keeps about ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed at the selected HW with these settings.`);
+    notes.push(`Optimal is the shortest rode that keeps at least ${fmt(optimalTarget, 1, " m")} of chain on the seabed at selected HW.`);
   }
 
   return {
-    rodeLength: recommended,
-    scope: result.scopeRatio,
-    shortfall: result.shortfall,
-    ropeOnSeabed: result.ropeOnSeabed,
-    highWaterChainOnSeabed: result.highWaterChainOnSeabed,
+    rodeLength: optimalRode,
+    minimumRode,
+    optimalRode,
+    minimumScope: minimumResult.scopeRatio,
+    optimalScope: optimalResult.scopeRatio,
+    scope: optimalResult.scopeRatio,
+    shortfall: optimalResult.shortfall,
+    ropeOnSeabed: optimalResult.ropeOnSeabed,
+    minimumHighWaterChainOnSeabed: minimumResult.highWaterChainOnSeabed,
+    highWaterChainOnSeabed: optimalResult.highWaterChainOnSeabed,
+    optimalCapped,
     notes
   };
 }
@@ -957,15 +983,17 @@ function calculateIdealRode(input = currentInputs()) {
 function showIdealRodeRecommendation(recommendation) {
   const panel = document.getElementById("scopeRecommendation");
   panel.classList.add("hasRecommendation");
-  panel.querySelector("strong").textContent = fmt(recommendation.rodeLength, 1, " m");
-  panel.querySelector("p").textContent = `${recommendation.notes.join(" ")} Selected-HW scope: ${fmt(recommendation.scope, 1, ":1")}.`;
+  document.getElementById("minimumRodeRecommendation").textContent = fmt(recommendation.minimumRode, 0, " m");
+  document.getElementById("optimalRodeRecommendation").textContent = recommendation.optimalCapped ? `${fmt(recommendation.optimalRode, 0, " m")} max` : fmt(recommendation.optimalRode, 0, " m");
+  panel.querySelector("p").textContent = `${recommendation.notes.join(" ")} Minimum selected-HW scope: ${fmt(recommendation.minimumScope, 1, ":1")}. Optimal selected-HW scope: ${fmt(recommendation.optimalScope, 1, ":1")}.`;
 }
 
 function clearIdealRodeRecommendation() {
   const panel = document.getElementById("scopeRecommendation");
   panel.classList.remove("hasRecommendation");
-  panel.querySelector("strong").textContent = "-";
-  panel.querySelector("p").textContent = "Use the button to calculate a recommendation from the conditions now and boat settings.";
+  document.getElementById("minimumRodeRecommendation").textContent = "-";
+  document.getElementById("optimalRodeRecommendation").textContent = "-";
+  panel.querySelector("p").textContent = "Use the button to calculate minimum and optimal rode recommendations from the conditions now and boat settings.";
 }
 
 function applyServerStateToTideFields() {
@@ -1861,9 +1889,16 @@ document.getElementById("calculateIdealRode").addEventListener("click", () => {
   showIdealRodeRecommendation(idealRode);
 });
 
-document.getElementById("applyIdealRode").addEventListener("click", () => {
+document.getElementById("applyMinimumRode").addEventListener("click", () => {
   if (!idealRode) idealRode = calculateIdealRode();
-  document.getElementById("rodeLength").value = idealRode.rodeLength;
+  document.getElementById("rodeLength").value = Math.round(idealRode.minimumRode);
+  renderAll();
+  showIdealRodeRecommendation(idealRode);
+});
+
+document.getElementById("applyOptimalRode").addEventListener("click", () => {
+  if (!idealRode) idealRode = calculateIdealRode();
+  document.getElementById("rodeLength").value = Math.round(idealRode.optimalRode);
   renderAll();
   showIdealRodeRecommendation(idealRode);
 });

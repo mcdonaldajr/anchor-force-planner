@@ -9,7 +9,7 @@ const cacheDir = join(dataDir, "cache");
 const stateFile = join(dataDir, "anchor-force-state.json");
 const port = Number(process.env.PORT || 4184);
 const host = process.env.HOST || "127.0.0.1";
-const serverVersion = "0.5.4";
+const serverVersion = "0.5.13";
 const serverStartedAt = new Date().toISOString();
 
 const obanReferenceLevels = {

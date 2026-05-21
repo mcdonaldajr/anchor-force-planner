@@ -44,7 +44,7 @@
               <label title="Expected true wind at the anchorage in knots. Wind load uses the Settings tab windage factor and increases with wind speed squared.">Wind speed
                 <span class="inputWithUnit"><input id="windSpeed" type="number" value="20" min="0" max="90" step="1"><span>kn</span></span>
               </label>
-              <label title="Expected tidal stream through the anchorage in knots. This is separate from tide height and is added as horizontal load for catenary, ideal rode, and drag checks.">Tidal stream
+              <label title="Expected tidal stream through the anchorage in knots. This is separate from tide height and is added as horizontal load for catenary, recommended rode, and drag checks.">Tidal stream
                 <span class="inputWithUnit"><input id="tidalStream" type="number" value="1.0" min="0" max="8" step="0.1"><span>kn</span></span>
               </label>
               <label title="Charted depth at chart datum for the spot where the anchor is expected to lie. When using chart + tide, present water depth is charted depth plus calculated tide rise now.">Charted depth
@@ -72,13 +72,24 @@
               </div>
             </section>
             <div class="recommendationActions">
-              <button id="calculateIdealRode" type="button" title="Recommend deployed rode from high-water depth, expected wind, tidal stream, and available chain plus rope.">Calculate ideal rode</button>
+              <button id="calculateIdealRode" type="button" title="Calculate two deployed-rode recommendations: minimum from scope and load, and optimal from high-water catenary keeping at least 1 m of chain on the seabed.">Calculate recommended rode</button>
             </div>
             <section id="scopeRecommendation" class="recommendationPanel" aria-live="polite">
-              <span>Recommended rode</span>
-              <strong>-</strong>
+              <div class="recommendationOptions">
+                <div>
+                  <span>Minimum rode</span>
+                  <strong id="minimumRodeRecommendation">-</strong>
+                </div>
+                <div>
+                  <span>Optimal rode</span>
+                  <strong id="optimalRodeRecommendation">-</strong>
+                </div>
+              </div>
               <p>Use the button to calculate a recommendation from the conditions now and boat settings.</p>
-              <button id="applyIdealRode" type="button" title="Copy the recommended rode length into the Rode length input.">Apply rode</button>
+              <div class="recommendationApplyActions">
+                <button id="applyMinimumRode" type="button" title="Copy the minimum recommended rode length into the Rode length input.">Apply minimum</button>
+                <button id="applyOptimalRode" type="button" title="Copy the optimal recommended rode length into the Rode length input.">Apply optimal</button>
+              </div>
             </section>
           </section>
 
