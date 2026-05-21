@@ -41,6 +41,17 @@
                 <p>Edit the assumptions and the planner recalculates immediately.</p>
               </div>
             </div>
+            <section class="plannerTideControl" aria-label="Planner tide selection">
+              <div>
+                <span>Planner tide</span>
+                <strong id="plannerTideLabel">Present tide</strong>
+              </div>
+              <div class="plannerTideButtons" role="group" aria-label="Select tide used by the planner">
+                <button class="secondaryButton plannerTideButton" type="button" data-tide-offset="-1" title="Use the previous tide interval for the planner, useful for comparing the previous low-water clearance.">Previous tide</button>
+                <button class="secondaryButton plannerTideButton active" type="button" data-tide-offset="0" title="Use the tide interval around the present time for the planner.">Present tide</button>
+                <button class="secondaryButton plannerTideButton" type="button" data-tide-offset="1" title="Use the following tide interval for the planner, useful for checking whether the boat may go aground on the next low water.">Next tide</button>
+              </div>
+            </section>
 
             <div class="inputGrid">
               <label title="Expected true wind at the anchorage in knots. Wind load uses the Settings tab windage factor and increases with wind speed squared.">Wind speed
@@ -55,7 +66,7 @@
               <label id="echoDepthLabel" title="Echo sounder reading now. Settings controls whether this is beneath keel or actual water depth from the surface.">Echo below keel now
                 <span class="inputWithUnit"><input id="echoBelowKeel" type="number" value="6.2" min="0" max="80" step="0.1"><span>m</span></span>
               </label>
-              <label title="Calculated from the Tide tab using HW/LW times and heights with the rule of twelfths. Read-only and approximate.">Tide rise now
+              <label title="Calculated from the selected planner tide using HW/LW times and heights with the rule of twelfths. Read-only and approximate.">Tide rise selected
                 <span class="inputWithUnit"><input id="tideHeight" type="text" value="3.0" readonly><span>m</span></span>
               </label>
               <label title="Total rode you intend to deploy from bow roller to anchor. If more is entered than the boat carries, the app warns and caps the diagram at available chain plus rope.">Rode length
@@ -68,9 +79,9 @@
                 <button class="depthSourceButton" type="button" data-depth-source="sounder" title="Use the echo-sounder reading, adjusted by the Settings echo mode, as the present water depth.">Use echo sounder</button>
               </div>
               <div class="depthCompare">
-                <div title="Present water depth from charted depth plus calculated tide rise."><span>Chart + tide depth now</span><strong id="chartDepthNow">-</strong></div>
+                <div title="Water depth from charted depth plus the tide rise selected in the planner tide control."><span>Chart + tide depth</span><strong id="chartDepthNow">-</strong></div>
                 <div title="Present water depth from the echo sounder, adjusted by the Settings echo mode."><span>Measured depth now</span><strong id="sounderDepthNow">-</strong></div>
-                <div title="Measured depth minus chart+tide depth. A large difference can mean the charted depth, transducer mode, or tide data is wrong."><span>Difference</span><strong id="depthDifference">-</strong></div>
+                <div title="Measured depth now minus chart+tide depth for the selected planner tide. For previous or next tide views, this is a comparison rather than a live calibration."><span>Difference</span><strong id="depthDifference">-</strong></div>
               </div>
             </section>
             <div class="recommendationActions">

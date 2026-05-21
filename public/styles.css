@@ -111,6 +111,18 @@ main {
   font-size: 11px;
 }
 
+.secondaryButton {
+  background: #edf4f8;
+  color: var(--ink);
+  border: 1px solid #c7d1da;
+}
+
+.secondaryButton.active {
+  background: var(--water);
+  border-color: var(--water);
+  color: #fff;
+}
+
 .tabs {
   display: flex;
   gap: 3px;
@@ -494,6 +506,42 @@ select {
   margin-bottom: 0;
 }
 
+.plannerTideControl {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfdfe;
+}
+
+.plannerTideControl span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.plannerTideControl strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+.plannerTideButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.plannerTideButton {
+  padding: 7px 9px;
+  font-size: 13px;
+}
+
 .tideCurvePanel {
   max-width: 980px;
   margin: 0 0 10px;
@@ -577,6 +625,10 @@ select {
 
 .secondaryPreview .panelHeader {
   align-items: center;
+}
+
+.secondaryPreview .tideSummary {
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
 }
 
 .secondaryActions {

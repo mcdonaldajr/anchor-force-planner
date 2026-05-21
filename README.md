@@ -2,7 +2,7 @@
 
 Local web app version of `Anchor Force.xlsx`.
 
-It calculates anchor wind load, tidal-stream load, HW-set rode length, per-tide-state scope, estimated combined chain/rope catenary, seabed rode, rope-on-seabed risk, weight to lift, tide-derived or echo-sounder depth now, and keel clearance. Boat-specific constants live on the **Settings** tab. The **Tide** tab accepts Oban HW/LW times and heights, can apply user-entered secondary-port corrections, and estimates tide rise now with the rule of twelfths. The **Tide Data** tab can fetch seven-day Oban tide events from the ADMIRALTY UK Tidal API; when fetched events are available, the app automatically uses the bracketing previous and following tide events for the present time.
+It calculates anchor wind load, tidal-stream load, HW-set rode length, per-tide-state scope, estimated combined chain/rope catenary, seabed rode, rope-on-seabed risk, weight to lift, tide-derived or echo-sounder depth, and keel clearance. Boat-specific constants live on the **Settings** tab. The Planner can switch between previous, present, and next tide intervals so you can check the following low-water grounding risk. The **Tide** tab accepts Oban HW/LW times and heights, can apply user-entered secondary-port corrections, and estimates tide rise now with the rule of twelfths. The **Tide Data** tab can fetch seven-day Oban tide events from the ADMIRALTY UK Tidal API; when fetched events are available, the app automatically uses the bracketing previous and following tide events for the present time.
 
 Use **Save settings** to make the current planner, tide, and boat settings the defaults for this browser.
 

@@ -1,4 +1,5 @@
-const webVersion = "0.5.4";
+const webVersion = "0.5.5";
+const halfCycleMinutes = 12 * 60 + 25;
 
 const defaults = {
   windSpeed: 40,
@@ -40,6 +41,7 @@ const checkboxIds = ["echoMeasuresBelowKeel"];
 let depthSource = "chart";
 let idealRode = null;
 let diagramMode = "now";
+let plannerTideOffset = 0;
 let saveSettingsTimer = null;
 let serverState = {
   tide: {
@@ -221,11 +223,68 @@ function eventHeight(event) {
   return Number(event.Height);
 }
 
-function currentInputs() {
+function plannerReferenceDate(offset = plannerTideOffset) {
+  return new Date(Date.now() + offset * halfCycleMinutes * 60000);
+}
+
+function activeTideLabel(offset = plannerTideOffset) {
+  if (offset === 0) return "Present tide";
+  if (offset === 1) return "Next tide";
+  if (offset === -1) return "Previous tide";
+  return offset > 0 ? `Next tide +${offset - 1}` : `Previous tide ${offset + 1}`;
+}
+
+function baseInputs(tideDate = plannerReferenceDate()) {
   const input = Object.fromEntries(ids.map((id) => [id, number(id)]));
-  const tide = activeTideValues();
+  const tide = activeTideValues(tideDate);
   input.hwHeight = tide.hwHeight;
   input.lwHeight = tide.lwHeight;
+  return input;
+}
+
+function tideBracketForDate(input, date = new Date()) {
+  let nowMinutes = nowMinutesForDisplayMode(date);
+  const pair = bracketingActiveTideEvents(date);
+  let before = pair?.before;
+  let after = pair?.after;
+
+  if (pair) {
+    nowMinutes = pair.nowMinute;
+  } else {
+    const tide = activeTideValues(date);
+    const hw = timeToMinutes(tide.hwTime);
+    const lw = timeToMinutes(tide.lwTime);
+    const baseEvents = [
+      { type: "HW", minute: hw, height: input.hwHeight },
+      { type: "LW", minute: lw, height: input.lwHeight }
+    ];
+    const events = [];
+    for (const shift of [-2, -1, 0, 1, 2]) {
+      for (const event of baseEvents) events.push({ ...event, minute: event.minute + shift * halfCycleMinutes });
+    }
+    events.sort((a, b) => a.minute - b.minute);
+    before = events[0];
+    after = events[1];
+    for (let index = 0; index < events.length - 1; index += 1) {
+      if (events[index].minute <= nowMinutes && nowMinutes <= events[index + 1].minute && events[index].type !== events[index + 1].type) {
+        before = events[index];
+        after = events[index + 1];
+        break;
+      }
+    }
+  }
+
+  return { before, after, nowMinutes };
+}
+
+function tideHeightForDate(input, date = plannerReferenceDate()) {
+  const bracket = tideBracketForDate(input, date);
+  return tideHeightBetween(bracket.before, bracket.after, bracket.nowMinutes);
+}
+
+function currentInputs(tideDate = plannerReferenceDate()) {
+  const input = baseInputs(tideDate);
+  input.tideHeight = tideHeightForDate(input, tideDate);
   return input;
 }
 
@@ -429,35 +488,27 @@ function downloadedObanCycle(now = new Date()) {
     .filter((event) => Number.isFinite(eventTimestamp(event)) && Number.isFinite(eventHeight(event)));
   if (events.length < 2) return null;
 
+  const pairs = [];
   for (let index = 0; index < events.length - 1; index += 1) {
     const before = events[index];
     const after = events[index + 1];
-    if (
-      eventTimestamp(before) <= nowMs
-      && nowMs <= eventTimestamp(after)
-      && before.EventType !== after.EventType
-    ) {
+    if (before.EventType !== after.EventType) {
       const hw = before.EventType === "HighWater" ? before : after;
       const lw = before.EventType === "LowWater" ? before : after;
-      return { before, after, hw, lw, range: Math.abs(eventHeight(hw) - eventHeight(lw)) };
+      pairs.push({ before, after, hw, lw, range: Math.abs(eventHeight(hw) - eventHeight(lw)) });
     }
   }
+  if (!pairs.length) return null;
 
-  const nearestIndex = events.reduce((best, event, index) => {
-    const distance = Math.abs(eventTimestamp(event) - nowMs);
+  const activeIndex = pairs.findIndex((pair) => eventTimestamp(pair.before) <= nowMs && nowMs <= eventTimestamp(pair.after));
+  if (activeIndex >= 0) return pairs[activeIndex];
+
+  const nearestPairIndex = pairs.reduce((best, pair, index) => {
+    const midpoint = (eventTimestamp(pair.before) + eventTimestamp(pair.after)) / 2;
+    const distance = Math.abs(midpoint - nowMs);
     return distance < best.distance ? { index, distance } : best;
   }, { index: 0, distance: Infinity }).index;
-  const candidatePairs = [
-    [events[nearestIndex - 1], events[nearestIndex]],
-    [events[nearestIndex], events[nearestIndex + 1]]
-  ].filter(([before, after]) => before && after && before.EventType !== after.EventType);
-  if (!candidatePairs.length) return null;
-  const [before, after] = candidatePairs
-    .sort((a, b) => Math.abs(eventTimestamp(a[0]) - nowMs) + Math.abs(eventTimestamp(a[1]) - nowMs)
-      - (Math.abs(eventTimestamp(b[0]) - nowMs) + Math.abs(eventTimestamp(b[1]) - nowMs)))[0];
-  const hw = before.EventType === "HighWater" ? before : after;
-  const lw = before.EventType === "LowWater" ? before : after;
-  return { before, after, hw, lw, range: Math.abs(eventHeight(hw) - eventHeight(lw)) };
+  return pairs[nearestPairIndex];
 }
 
 function obanTideValuesForNow(now = new Date()) {
@@ -474,8 +525,8 @@ function obanTideValuesForNow(now = new Date()) {
   };
 }
 
-function activeTideValues() {
-  const oban = obanTideValuesForNow();
+function activeTideValues(now = new Date()) {
+  const oban = obanTideValuesForNow(now);
   if (serverState.tide.source === "secondary") return secondaryTideValues(selectedSecondaryPort(), oban);
   const date = oban.date || obanDate();
   return {
@@ -519,8 +570,14 @@ function sounderDepthNow(input) {
   return input.echoBelowKeel + (document.getElementById("echoMeasuresBelowKeel").checked ? input.draft : 0);
 }
 
+function presentTideHeightForDepthSource() {
+  const now = new Date();
+  const presentInput = baseInputs(now);
+  return tideHeightForDate(presentInput, now);
+}
+
 function chartedDepthFor(input, tideHeight = input.tideHeight) {
-  if (depthSource === "sounder") return Math.max(0, sounderDepthNow(input) - tideHeight);
+  if (depthSource === "sounder") return Math.max(0, sounderDepthNow(input) - presentTideHeightForDepthSource());
   return Math.max(0, input.depthLw);
 }
 
@@ -1183,7 +1240,6 @@ function bracketingActiveTideEvents(now = new Date()) {
 }
 
 function tideEventsForRange(tide, startMinute, endMinute) {
-  const halfCycleMinutes = 12 * 60 + 25;
   const baseEvents = [
     { type: "HW", minute: timeToMinutes(tide.hwTime), height: Number(tide.hwHeight || 0) },
     { type: "LW", minute: timeToMinutes(tide.lwTime), height: Number(tide.lwHeight || 0) }
@@ -1207,39 +1263,9 @@ function tideAtMinute(tide, minute, timeline = null) {
   return Number(tide.lwHeight || 0);
 }
 
-function currentTide() {
-  const input = currentInputs();
-  const now = new Date();
-  let nowMinutes = nowMinutesForDisplayMode(now);
-  let pair = bracketingActiveTideEvents(now);
-  let before = pair?.before;
-  let after = pair?.after;
-
-  if (pair) {
-    nowMinutes = pair.nowMinute;
-  } else {
-    const hw = timeMinutes("hwTime");
-    const lw = timeMinutes("lwTime");
-    const halfCycleMinutes = 12 * 60 + 25;
-    const baseEvents = [
-      { type: "HW", minute: hw, height: input.hwHeight },
-      { type: "LW", minute: lw, height: input.lwHeight }
-    ];
-    const events = [];
-    for (const shift of [-2, -1, 0, 1, 2]) {
-      for (const event of baseEvents) events.push({ ...event, minute: event.minute + shift * halfCycleMinutes });
-    }
-    events.sort((a, b) => a.minute - b.minute);
-    before = events[0];
-    after = events[1];
-    for (let index = 0; index < events.length - 1; index += 1) {
-      if (events[index].minute <= nowMinutes && nowMinutes <= events[index + 1].minute && events[index].type !== events[index + 1].type) {
-        before = events[index];
-        after = events[index + 1];
-        break;
-      }
-    }
-  }
+function currentTide(now = new Date()) {
+  const input = baseInputs(now);
+  const { before, after, nowMinutes } = tideBracketForDate(input, now);
 
   const rising = before.type === "LW" && after.type === "HW";
   const height = tideHeightBetween(before, after, nowMinutes);
@@ -1263,7 +1289,7 @@ function currentTide() {
 }
 
 function updateTideSummary() {
-  const tide = currentTide();
+  const tide = currentTide(new Date());
   const spring = springPercentageForNow();
   const tideSourceLabel = serverState.tide.source === "secondary" && selectedSecondaryPort()
     ? selectedSecondaryPort().name
@@ -1286,6 +1312,19 @@ function updateTideSummary() {
   } else {
     status.textContent = `Low-water clearance is ${fmt(tide.lowWaterClearance, 1, " m")} using ${tideSourceLabel} tide values.`;
   }
+  return tide;
+}
+
+function updatePlannerTideControl() {
+  const referenceDate = plannerReferenceDate();
+  const tide = currentTide(referenceDate);
+  const tideValues = activeTideValues(referenceDate);
+  const lowWaterLabel = `${tideValues.lwTime || "--:--"} ${fmt(tideValues.lwHeight, 1, " m")}`;
+  document.getElementById("tideHeight").value = round(tide.height, 1);
+  document.getElementById("plannerTideLabel").textContent = `${activeTideLabel()} - LW ${lowWaterLabel}, ${tide.phase.toLowerCase()} at ${formatClock(referenceDate)}`;
+  document.querySelectorAll(".plannerTideButton").forEach((button) => {
+    button.classList.toggle("active", Number(button.dataset.tideOffset) === plannerTideOffset);
+  });
   return tide;
 }
 
@@ -1637,6 +1676,7 @@ function renderAll() {
   renderSecondaryTidePreview();
   renderTideDataManager();
   updateTideSummary();
+  updatePlannerTideControl();
   renderTideCurve();
   updateDepthComparison();
   const result = calculate();
@@ -1676,6 +1716,15 @@ document.querySelectorAll(".diagramTab").forEach((button) => {
     diagramMode = button.dataset.diagram;
     document.querySelectorAll(".diagramTab").forEach((item) => item.classList.toggle("active", item === button));
     renderDiagram(calculateDiagramResult(), diagramMode);
+  });
+});
+
+document.querySelectorAll(".plannerTideButton").forEach((button) => {
+  button.addEventListener("click", () => {
+    plannerTideOffset = Number(button.dataset.tideOffset) || 0;
+    idealRode = null;
+    clearIdealRodeRecommendation();
+    renderAll();
   });
 });
 
