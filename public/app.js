@@ -1,4 +1,4 @@
-const webVersion = "0.5.6";
+const webVersion = "0.5.7";
 const halfCycleMinutes = 12 * 60 + 25;
 
 const defaults = {
@@ -40,8 +40,7 @@ const allInputIds = [...ids, ...Object.keys(timeDefaults)];
 const checkboxIds = ["echoMeasuresBelowKeel"];
 let depthSource = "chart";
 let idealRode = null;
-let diagramMode = "now";
-let plannerTideOffset = 0;
+let selectedTideViewKey = "now";
 let saveSettingsTimer = null;
 let serverState = {
   tide: {
@@ -223,18 +222,7 @@ function eventHeight(event) {
   return Number(event.Height);
 }
 
-function plannerReferenceDate(offset = plannerTideOffset) {
-  return new Date(Date.now() + offset * halfCycleMinutes * 60000);
-}
-
-function activeTideLabel(offset = plannerTideOffset) {
-  if (offset === 0) return "Present tide";
-  if (offset === 1) return "Next tide";
-  if (offset === -1) return "Previous tide";
-  return offset > 0 ? `Next tide +${offset - 1}` : `Previous tide ${offset + 1}`;
-}
-
-function baseInputs(tideDate = plannerReferenceDate()) {
+function baseInputs(tideDate = new Date()) {
   const input = Object.fromEntries(ids.map((id) => [id, number(id)]));
   const tide = activeTideValues(tideDate);
   input.hwHeight = tide.hwHeight;
@@ -277,14 +265,15 @@ function tideBracketForDate(input, date = new Date()) {
   return { before, after, nowMinutes };
 }
 
-function tideHeightForDate(input, date = plannerReferenceDate()) {
+function tideHeightForDate(input, date = new Date()) {
   const bracket = tideBracketForDate(input, date);
   return tideHeightBetween(bracket.before, bracket.after, bracket.nowMinutes);
 }
 
-function currentInputs(tideDate = plannerReferenceDate()) {
-  const input = baseInputs(tideDate);
-  input.tideHeight = tideHeightForDate(input, tideDate);
+function currentInputs() {
+  const view = selectedPlannerTideView();
+  const input = baseInputs(view.date);
+  input.tideHeight = view.height;
   return input;
 }
 
@@ -887,10 +876,13 @@ function calculate() {
   return calculateForDepth(input, chartedDepthFor(input));
 }
 
-function calculateDiagramResult(mode = diagramMode) {
+function calculateScenarioResult(tideHeight) {
   const input = currentInputs();
-  const tideHeight = mode === "lw" ? input.lwHeight : mode === "hw" ? input.hwHeight : input.tideHeight;
   return calculateForDepth({ ...input, tideHeight }, chartedDepthFor(input));
+}
+
+function calculateDiagramResult() {
+  return calculate();
 }
 
 function calculateIdealRode(input = currentInputs()) {
@@ -1223,20 +1215,36 @@ function activeTideTimeline(date = new Date()) {
   return timeline.length >= 2 ? timeline : null;
 }
 
-function bracketingActiveTideEvents(now = new Date()) {
-  const timeline = activeTideTimeline(now);
-  if (!timeline) return null;
-  const nowMinute = (now.getTime() - displayDayStart(now)) / 60000;
+function fallbackTideTimeline(date = new Date()) {
+  const tide = activeTideValues(date);
+  const dayStart = displayDayStart(date);
+  return tideEventsForRange(tide, -1500, 3300).map((event) => ({
+    ...event,
+    timestamp: dayStart + event.minute * 60000
+  }));
+}
+
+function plannerTideTimeline(date = new Date()) {
+  return activeTideTimeline(date) || fallbackTideTimeline(date);
+}
+
+function tideBracketFromTimeline(timeline, date = new Date()) {
+  const nowMinute = (date.getTime() - displayDayStart(date)) / 60000;
   for (let index = 0; index < timeline.length - 1; index += 1) {
     if (
       timeline[index].minute <= nowMinute
       && nowMinute <= timeline[index + 1].minute
       && timeline[index].type !== timeline[index + 1].type
     ) {
-      return { before: timeline[index], after: timeline[index + 1], nowMinute };
+      return { before: timeline[index], after: timeline[index + 1], nowMinute, beforeIndex: index, afterIndex: index + 1 };
     }
   }
   return null;
+}
+
+function bracketingActiveTideEvents(now = new Date()) {
+  const timeline = activeTideTimeline(now);
+  return timeline ? tideBracketFromTimeline(timeline, now) : null;
 }
 
 function tideEventsForRange(tide, startMinute, endMinute) {
@@ -1261,6 +1269,82 @@ function tideAtMinute(tide, minute, timeline = null) {
     }
   }
   return Number(tide.lwHeight || 0);
+}
+
+function tideViewEventKey(event) {
+  return `event-${event.type}-${Math.round(Number(event.timestamp || 0))}`;
+}
+
+function tideViewTime(event) {
+  if (Number.isFinite(event.timestamp)) {
+    const date = new Date(event.timestamp);
+    return displayTimeMode() === "ut"
+      ? `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")}`
+      : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  }
+  return minutesToTime(event.minute);
+}
+
+function tideViewDate(event) {
+  return Number.isFinite(event.timestamp)
+    ? new Date(event.timestamp)
+    : new Date(displayDayStart(new Date()) + event.minute * 60000);
+}
+
+function tideEventView(event, groupLabel) {
+  const time = tideViewTime(event);
+  return {
+    key: tideViewEventKey(event),
+    label: `${groupLabel} ${event.type}`,
+    time,
+    height: Number(event.height || 0),
+    type: event.type,
+    date: tideViewDate(event),
+    title: `${groupLabel} ${event.type} at ${time} ${timeBasisLabel()}, ${fmt(Number(event.height || 0), 1, " m")}`
+  };
+}
+
+function plannerTideViews(now = new Date()) {
+  const timeline = plannerTideTimeline(now);
+  const bracket = tideBracketFromTimeline(timeline, now);
+  if (!bracket) {
+    const input = baseInputs(now);
+    return [{
+      key: "now",
+      label: "Now",
+      time: formatClock(now),
+      height: tideHeightForDate(input, now),
+      type: "Now",
+      date: now,
+      title: `Now, ${formatClock(now)}`
+    }];
+  }
+
+  const { beforeIndex, afterIndex, before, after, nowMinute } = bracket;
+  const nowHeight = tideHeightBetween(before, after, nowMinute);
+  const previousEvents = timeline.slice(Math.max(0, beforeIndex - 1), beforeIndex + 1);
+  const nextEvents = timeline.slice(afterIndex, afterIndex + 2);
+  const subsequentEvents = timeline.slice(afterIndex + 2, afterIndex + 4);
+
+  return [
+    ...previousEvents.map((event) => tideEventView(event, "Previous")),
+    {
+      key: "now",
+      label: "Now",
+      time: formatClock(now),
+      height: nowHeight,
+      type: "Now",
+      date: now,
+      title: `Now, ${formatClock(now)}, ${fmt(nowHeight, 1, " m")}`
+    },
+    ...nextEvents.map((event) => tideEventView(event, "Next")),
+    ...subsequentEvents.map((event) => tideEventView(event, "Subsequent"))
+  ];
+}
+
+function selectedPlannerTideView() {
+  const views = plannerTideViews();
+  return views.find((view) => view.key === selectedTideViewKey) || views.find((view) => view.key === "now") || views[0];
 }
 
 function currentTide(now = new Date()) {
@@ -1316,16 +1400,18 @@ function updateTideSummary() {
 }
 
 function updatePlannerTideControl() {
-  const referenceDate = plannerReferenceDate();
-  const tide = currentTide(referenceDate);
-  const tideValues = activeTideValues(referenceDate);
-  const lowWaterLabel = `${tideValues.lwTime || "--:--"} ${fmt(tideValues.lwHeight, 1, " m")}`;
-  document.getElementById("tideHeight").value = round(tide.height, 1);
-  document.getElementById("plannerTideLabel").textContent = `${activeTideLabel()} - LW ${lowWaterLabel}, ${tide.phase.toLowerCase()} at ${formatClock(referenceDate)}`;
-  document.querySelectorAll(".plannerTideButton").forEach((button) => {
-    button.classList.toggle("active", Number(button.dataset.tideOffset) === plannerTideOffset);
-  });
-  return tide;
+  const views = plannerTideViews();
+  const selected = views.find((view) => view.key === selectedTideViewKey) || views.find((view) => view.key === "now") || views[0];
+  selectedTideViewKey = selected.key;
+  document.getElementById("tideHeight").value = round(selected.height, 1);
+  const tabs = document.getElementById("diagramTabs");
+  tabs.innerHTML = views.map((view) => `
+    <button class="diagramTab${view.key === selected.key ? " active" : ""}" type="button" data-tide-view="${escapeHtml(view.key)}" title="${escapeHtml(view.title)}">
+      <span>${escapeHtml(view.label)}</span>
+      <small>${escapeHtml(view.time)} ${escapeHtml(fmt(view.height, 1, " m"))}</small>
+    </button>
+  `).join("");
+  return selected;
 }
 
 function statusText(result) {
@@ -1428,19 +1514,19 @@ function pathFromPhysicalPoints(points, anchorX, seabedY, scale, seabedOffset, s
   }).join(" ");
 }
 
-function renderDiagram(result, mode = diagramMode) {
+function renderDiagram(result, view = selectedPlannerTideView()) {
   const input = currentInputs();
   const target = document.getElementById("rodeDiagram");
   target.innerHTML = "";
-  const modeLabel = mode === "lw" ? "LW" : mode === "hw" ? "HW" : "Now";
+  const modeLabel = view.label || "Now";
 
   const width = 860;
   const height = 300;
   const seabedY = 222;
   const verticalDrop = Math.max(0.1, result.depthHw + input.bowHeight);
   const horizontalReach = result.horizontalReach;
-  const hwResult = calculateDiagramResult("hw");
-  const lwResult = calculateDiagramResult("lw");
+  const hwResult = calculateScenarioResult(input.hwHeight);
+  const lwResult = calculateScenarioResult(input.lwHeight);
   const moveFromHw = horizontalReach - hwResult.horizontalReach;
   const visibleRun = Math.max(horizontalReach, hwResult.horizontalReach, lwResult.horizontalReach, result.amountOnSeabed, input.loa, 10);
   const maxVerticalDrop = Math.max(verticalDrop, hwResult.verticalDrop, lwResult.verticalDrop);
@@ -1494,7 +1580,7 @@ function renderDiagram(result, mode = diagramMode) {
     svg("rect", { x: 0, y: seabedY, width, height: height - seabedY, fill: "#d7c4a3" }),
     svg("line", { x1: 0, y1: waterY, x2: width, y2: waterY, stroke: "#1f6f8b", "stroke-width": 3 }),
     svg("line", { x1: 0, y1: lowWaterY, x2: width, y2: lowWaterY, stroke: "#5aa5c9", "stroke-width": 2, "stroke-dasharray": "7 6" }),
-    ...(mode !== "hw" ? [
+    ...(view.type !== "HW" ? [
       svg("line", { x1: hwBowX, y1: seabedY + 16, x2: bowX, y2: seabedY + 16, stroke: "#7a6a45", "stroke-width": 2, "stroke-dasharray": "5 5" }),
       svg("text", { x: Math.min(hwBowX, bowX) + 8, y: seabedY + 44, fill: "#5f4b2c", "font-size": 12 }, [document.createTextNode(`${fmt(Math.abs(moveFromHw), 1, " m")} from HW set position`)])
     ] : []),
@@ -1681,7 +1767,7 @@ function renderAll() {
   updateDepthComparison();
   const result = calculate();
   updateSummary(result);
-  renderDiagram(calculateDiagramResult(), diagramMode);
+  renderDiagram(calculateDiagramResult(), selectedPlannerTideView());
   renderScopeTable(result);
   renderForceTable();
   renderForceChart();
@@ -1711,21 +1797,13 @@ document.querySelectorAll(".tabButton").forEach((button) => {
   });
 });
 
-document.querySelectorAll(".diagramTab").forEach((button) => {
-  button.addEventListener("click", () => {
-    diagramMode = button.dataset.diagram;
-    document.querySelectorAll(".diagramTab").forEach((item) => item.classList.toggle("active", item === button));
-    renderDiagram(calculateDiagramResult(), diagramMode);
-  });
-});
-
-document.querySelectorAll(".plannerTideButton").forEach((button) => {
-  button.addEventListener("click", () => {
-    plannerTideOffset = Number(button.dataset.tideOffset) || 0;
-    idealRode = null;
-    clearIdealRodeRecommendation();
-    renderAll();
-  });
+document.getElementById("diagramTabs").addEventListener("click", (event) => {
+  const button = event.target.closest(".diagramTab");
+  if (!button) return;
+  selectedTideViewKey = button.dataset.tideView || "now";
+  idealRode = null;
+  clearIdealRodeRecommendation();
+  renderAll();
 });
 
 document.querySelectorAll(".depthSourceButton").forEach((button) => {

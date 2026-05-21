@@ -40,17 +40,6 @@
                 <p>Edit the assumptions and the planner recalculates immediately.</p>
               </div>
             </div>
-            <section class="plannerTideControl" aria-label="Planner tide selection">
-              <div>
-                <span>Planner tide</span>
-                <strong id="plannerTideLabel">Present tide</strong>
-              </div>
-              <div class="plannerTideButtons" role="group" aria-label="Select tide used by the planner">
-                <button class="secondaryButton plannerTideButton" type="button" data-tide-offset="-1" title="Use the previous tide interval for the planner, useful for comparing the previous low-water clearance.">Previous tide</button>
-                <button class="secondaryButton plannerTideButton active" type="button" data-tide-offset="0" title="Use the tide interval around the present time for the planner.">Present tide</button>
-                <button class="secondaryButton plannerTideButton" type="button" data-tide-offset="1" title="Use the following tide interval for the planner, useful for checking whether the boat may go aground on the next low water.">Next tide</button>
-              </div>
-            </section>
 
             <div class="inputGrid">
               <label title="Expected true wind at the anchorage in knots. Wind load uses the Settings tab windage factor and increases with wind speed squared.">Wind speed
@@ -65,7 +54,7 @@
               <label id="echoDepthLabel" title="Echo sounder reading now. Settings controls whether this is beneath keel or actual water depth from the surface.">Echo below keel now
                 <span class="inputWithUnit"><input id="echoBelowKeel" type="number" value="6.2" min="0" max="80" step="0.1"><span>m</span></span>
               </label>
-              <label title="Calculated from the selected planner tide using HW/LW times and heights with the rule of twelfths. Read-only and approximate.">Tide rise selected
+              <label title="Calculated tide height above chart datum for the selected planner view. Now is interpolated; HW and LW buttons use their predicted event heights.">Tide rise selected
                 <span class="inputWithUnit"><input id="tideHeight" type="text" value="3.0" readonly><span>m</span></span>
               </label>
               <label title="Total rode you intend to deploy from bow roller to anchor. If more is entered than the boat carries, the app warns and caps the diagram at available chain plus rope.">Rode length
@@ -100,22 +89,18 @@
               <div title="Estimated horizontal wind load using windage factor, LOA squared, and wind speed squared."><span>Wind force</span><strong id="windForce">-</strong></div>
               <div title="Estimated horizontal tidal-stream load from underwater projected area and stream speed squared."><span>Tidal load</span><strong id="tidalForce">-</strong></div>
               <div title="Rode length entered in the planner. The diagram uses the available rode if this exceeds chain plus rope carried."><span>Rode set</span><strong id="rodeNeeded">-</strong></div>
-              <div title="Depth beneath the keel now from the selected depth source."><span>Keel clearance now</span><strong id="clearanceNow">-</strong></div>
-              <div title="Displayed scope for the selected Now view: rode length divided by water depth plus bow height."><span>Scope now</span><strong id="scopeNow">-</strong></div>
+              <div title="Depth beneath the keel in the selected planner view, from the selected depth source."><span>Keel clearance</span><strong id="clearanceNow">-</strong></div>
+              <div title="Displayed scope for the selected planner view: rode length divided by water depth plus bow height."><span>Scope</span><strong id="scopeNow">-</strong></div>
               <div title="Estimated chain still lying on the seabed at high water. High water is the drag-risk case because the deepest water lifts the most chain."><span>Chain on seabed at HW</span><strong id="seabedLength">-</strong></div>
-              <div title="Estimated suspended anchor, chain, and rope weight in the selected Now condition."><span>Max lift weight</span><strong id="liftWeight">-</strong></div>
-              <div title="Estimated rope lying on the seabed now. Rope on the bottom can chafe."><span>Rope on seabed</span><strong id="ropeSeabed">-</strong></div>
-              <div title="Estimated chain lying on the seabed now."><span>Chain on seabed now</span><strong id="chainSeabed">-</strong></div>
+              <div title="Estimated suspended anchor, chain, and rope weight in the selected planner view."><span>Max lift weight</span><strong id="liftWeight">-</strong></div>
+              <div title="Estimated rope lying on the seabed in the selected planner view. Rope on the bottom can chafe."><span>Rope on seabed</span><strong id="ropeSeabed">-</strong></div>
+              <div title="Estimated chain lying on the seabed in the selected planner view."><span>Chain on seabed</span><strong id="chainSeabed">-</strong></div>
               <div title="High-water effective anchor holding minus wind plus tidal-stream load, after the pull-angle reduction."><span>Anchor margin at HW</span><strong id="anchorMargin">-</strong></div>
               <div title="Maximum wind load the anchor model allows at high water with this rode length and tidal stream before the anchor margin reaches zero."><span>Max wind before drag</span><strong id="windDragLimit">-</strong></div>
             </section>
 
             <section class="visualPanel" aria-label="Anchor geometry">
-              <div class="diagramTabs" aria-label="Diagram tide view">
-                <button class="diagramTab" type="button" data-diagram="lw">LW</button>
-                <button class="diagramTab active" type="button" data-diagram="now">Now</button>
-                <button class="diagramTab" type="button" data-diagram="hw">HW</button>
-              </div>
+              <div id="diagramTabs" class="diagramTabs" aria-label="Planner tide view"></div>
               <svg id="rodeDiagram" viewBox="0 0 860 300" role="img" aria-label="Rode geometry diagram"></svg>
             </section>
           </section>
