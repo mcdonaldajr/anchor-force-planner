@@ -18,7 +18,7 @@ server_is_running() {
 }
 
 server_is_current() {
-  node -e "const http=require('http');const req=http.get('${APP_URL}/api/version',res=>{let body='';res.on('data',d=>body+=d);res.on('end',()=>{try{const data=JSON.parse(body);process.exit(data.serverVersion==='0.5.1'?0:1)}catch{process.exit(1)}})});req.on('error',()=>process.exit(1));req.setTimeout(1000,()=>{req.destroy();process.exit(1)});" >/dev/null 2>&1
+  node -e "const http=require('http');const req=http.get('${APP_URL}/api/version',res=>{let body='';res.on('data',d=>body+=d);res.on('end',()=>{try{const data=JSON.parse(body);process.exit(data.serverVersion==='0.5.2'?0:1)}catch{process.exit(1)}})});req.on('error',()=>process.exit(1));req.setTimeout(1000,()=>{req.destroy();process.exit(1)});" >/dev/null 2>&1
 }
 
 stop_running_server() {
