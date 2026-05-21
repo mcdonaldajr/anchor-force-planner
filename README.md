@@ -50,6 +50,23 @@ Then open:
 http://127.0.0.1:4184
 ```
 
+## macOS Install
+
+From the project directory:
+
+```sh
+chmod +x scripts/start-macos.sh scripts/install-macos.sh
+./scripts/install-macos.sh
+```
+
+Then double-click **Anchor Force Planner.app** on the Desktop. It starts the local server in the background and opens the app in the default browser.
+
+To run from Terminal instead:
+
+```sh
+./scripts/start-macos.sh
+```
+
 ## Lubuntu Install
 
 Install dependencies:
