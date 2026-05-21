@@ -9,7 +9,7 @@ const cacheDir = join(dataDir, "cache");
 const stateFile = join(dataDir, "anchor-force-state.json");
 const port = Number(process.env.PORT || 4184);
 const host = process.env.HOST || "127.0.0.1";
-const serverVersion = "0.5.0";
+const serverVersion = "0.5.1";
 const serverStartedAt = new Date().toISOString();
 
 const obanReferenceLevels = {
@@ -74,6 +74,7 @@ const defaultState = {
     stationName: "Oban",
     stationId: "0372",
     timeStandard: "UT",
+    displayTimeMode: "ut",
     ukhoAccountEmail: "",
     ukhoApiKey: "",
     events: [],
@@ -310,6 +311,7 @@ createServer(async (req, res) => {
         stationName: String(body.stationName || state.tideData.stationName || "Oban").trim() || "Oban",
         stationId: String(body.stationId || state.tideData.stationId || "0372").trim().padStart(4, "0"),
         timeStandard: String(body.timeStandard || state.tideData.timeStandard || "UT").trim() || "UT",
+        displayTimeMode: body.displayTimeMode === "local" ? "local" : "ut",
         ukhoAccountEmail: String(body.ukhoAccountEmail || "").trim(),
         ukhoApiKey: body.clearUkhoApiKey === true
           ? ""

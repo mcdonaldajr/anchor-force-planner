@@ -1,4 +1,4 @@
-const webVersion = "0.5.0";
+const webVersion = "0.5.1";
 
 const defaults = {
   windSpeed: 40,
@@ -59,6 +59,7 @@ let serverState = {
     stationName: "Oban",
     stationId: "0372",
     timeStandard: "UT",
+    displayTimeMode: "ut",
     ukhoAccountEmail: "",
     ukhoApiKeySet: false,
     events: [],
@@ -119,6 +120,75 @@ function fmtDateTime(value) {
     dateStyle: "medium",
     timeStyle: "short"
   });
+}
+
+function displayTimeMode() {
+  return serverState.tideData.displayTimeMode === "local" ? "local" : "ut";
+}
+
+function timeBasisLabel() {
+  return displayTimeMode() === "local" ? "local" : "UT";
+}
+
+function datePartsForLocal(date) {
+  return {
+    year: date.getFullYear(),
+    month: String(date.getMonth() + 1).padStart(2, "0"),
+    day: String(date.getDate()).padStart(2, "0")
+  };
+}
+
+function todayIsoDateForMode() {
+  const now = new Date();
+  if (displayTimeMode() === "ut") return now.toISOString().slice(0, 10);
+  const parts = datePartsForLocal(now);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function obanDate() {
+  return serverState.tide.oban.date || todayIsoDateForMode();
+}
+
+function timeFromUtcForDisplay(utTime, date = obanDate()) {
+  if (displayTimeMode() !== "local") return utTime || "00:00";
+  const parsed = new Date(`${date}T${utTime || "00:00"}:00Z`);
+  if (Number.isNaN(parsed.getTime())) return utTime || "00:00";
+  return `${String(parsed.getHours()).padStart(2, "0")}:${String(parsed.getMinutes()).padStart(2, "0")}`;
+}
+
+function timeFromDisplayToUtc(displayTime, date = obanDate()) {
+  if (displayTimeMode() !== "local") return displayTime || "00:00";
+  const [hours, minutes] = String(displayTime || "00:00").split(":").map(Number);
+  const [year, month, day] = String(date || todayIsoDateForMode()).split("-").map(Number);
+  const parsed = new Date(
+    Number.isFinite(year) ? year : new Date().getFullYear(),
+    (Number.isFinite(month) ? month : 1) - 1,
+    Number.isFinite(day) ? day : 1,
+    Number.isFinite(hours) ? hours : 0,
+    Number.isFinite(minutes) ? minutes : 0,
+    0
+  );
+  return `${String(parsed.getUTCHours()).padStart(2, "0")}:${String(parsed.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+function eventDisplayParts(event) {
+  const rawDate = eventDate(event);
+  const rawTime = eventTime(event);
+  if (displayTimeMode() !== "local") return { date: rawDate, time: rawTime, label: "UT" };
+  const parsed = new Date(`${rawDate}T${rawTime}:00Z`);
+  if (Number.isNaN(parsed.getTime())) return { date: rawDate, time: rawTime, label: "local" };
+  const parts = datePartsForLocal(parsed);
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${String(parsed.getHours()).padStart(2, "0")}:${String(parsed.getMinutes()).padStart(2, "0")}`,
+    label: "local"
+  };
+}
+
+function nowMinutesForDisplayMode(date = new Date()) {
+  return displayTimeMode() === "ut"
+    ? date.getUTCHours() * 60 + date.getUTCMinutes() + date.getUTCSeconds() / 60
+    : date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
 }
 
 function currentInputs() {
@@ -210,9 +280,11 @@ function saveServerStateSoon() {
 }
 
 function obanTideFromFields() {
+  const date = obanDate();
   return {
-    hwTime: document.getElementById("hwTime").value || "00:00",
-    lwTime: document.getElementById("lwTime").value || "00:00",
+    date,
+    hwTime: timeFromDisplayToUtc(document.getElementById("hwTime").value || "00:00", date),
+    lwTime: timeFromDisplayToUtc(document.getElementById("lwTime").value || "00:00", date),
     hwHeight: number("hwHeight"),
     lwHeight: number("lwHeight")
   };
@@ -309,9 +381,13 @@ function secondaryTideValues(port = selectedSecondaryPort(), oban = serverState.
   const heightDiffs = portHeightDiffs(port);
   const hwHeightDiff = interpolateOffset(heightDiffs.mhwn, heightDiffs.mhws, hwFactor);
   const lwHeightDiff = interpolateOffset(heightDiffs.mlwn, heightDiffs.mlws, lwFactor);
+  const date = oban.date || obanDate();
+  const hwTimeUtc = minutesToTime(timeToMinutes(oban.hwTime) + hwTimeOffset);
+  const lwTimeUtc = minutesToTime(timeToMinutes(oban.lwTime) + lwTimeOffset);
   return {
-    hwTime: minutesToTime(timeToMinutes(oban.hwTime) + hwTimeOffset),
-    lwTime: minutesToTime(timeToMinutes(oban.lwTime) + lwTimeOffset),
+    date,
+    hwTime: timeFromUtcForDisplay(hwTimeUtc, date),
+    lwTime: timeFromUtcForDisplay(lwTimeUtc, date),
     hwHeight: round(Number(oban.hwHeight || 0) + hwHeightDiff, 1),
     lwHeight: round(Number(oban.lwHeight || 0) + lwHeightDiff, 1)
   };
@@ -319,7 +395,14 @@ function secondaryTideValues(port = selectedSecondaryPort(), oban = serverState.
 
 function activeTideValues() {
   if (serverState.tide.source === "secondary") return secondaryTideValues();
-  return { ...serverState.tide.oban };
+  const oban = serverState.tide.oban;
+  const date = oban.date || obanDate();
+  return {
+    ...oban,
+    date,
+    hwTime: timeFromUtcForDisplay(oban.hwTime, date),
+    lwTime: timeFromUtcForDisplay(oban.lwTime, date)
+  };
 }
 
 function springPercentages(tide = activeTideValues()) {
@@ -735,10 +818,13 @@ function clearIdealRodeRecommendation() {
 function applyServerStateToTideFields() {
   const oban = serverState.tide.oban;
   const reference = serverState.tide.obanReferenceLevels;
-  document.getElementById("hwTime").value = oban.hwTime || "15:00";
-  document.getElementById("lwTime").value = oban.lwTime || "09:00";
+  const date = oban.date || obanDate();
+  document.getElementById("hwTime").value = timeFromUtcForDisplay(oban.hwTime || "15:00", date);
+  document.getElementById("lwTime").value = timeFromUtcForDisplay(oban.lwTime || "09:00", date);
   document.getElementById("hwHeight").value = oban.hwHeight ?? 4;
   document.getElementById("lwHeight").value = oban.lwHeight ?? 1;
+  document.getElementById("hwTimeUnit").textContent = timeBasisLabel();
+  document.getElementById("lwTimeUnit").textContent = timeBasisLabel();
   document.getElementById("obanMhws").value = reference.mhws ?? 4.0;
   document.getElementById("obanMhwn").value = reference.mhwn ?? 2.9;
   document.getElementById("obanMlwn").value = reference.mlwn ?? 1.8;
@@ -891,6 +977,7 @@ function applyTideDataDate(date) {
     return;
   }
   serverState.tide.oban = {
+    date,
     hwTime: eventTime(hw),
     lwTime: eventTime(lw),
     hwHeight: round(Number(hw.Height), 1),
@@ -909,6 +996,7 @@ function applyTideDataFields() {
   document.getElementById("tideDataStationName").value = tideData.stationName || "Oban";
   document.getElementById("tideDataStationId").value = tideData.stationId || "0372";
   document.getElementById("tideDataTimeStandard").value = tideData.timeStandard || "UT";
+  document.getElementById("tideDataDisplayMode").value = displayTimeMode();
   document.getElementById("tideDataAccountEmail").value = tideData.ukhoAccountEmail || "";
 }
 
@@ -918,8 +1006,9 @@ function renderTideDataManager() {
   if (document.activeElement?.id !== "tideDataStationName") document.getElementById("tideDataStationName").value = tideData.stationName || "Oban";
   if (document.activeElement?.id !== "tideDataStationId") document.getElementById("tideDataStationId").value = tideData.stationId || "0372";
   if (document.activeElement?.id !== "tideDataTimeStandard") document.getElementById("tideDataTimeStandard").value = tideData.timeStandard || "UT";
+  if (document.activeElement?.id !== "tideDataDisplayMode") document.getElementById("tideDataDisplayMode").value = displayTimeMode();
   if (document.activeElement?.id !== "tideDataAccountEmail") document.getElementById("tideDataAccountEmail").value = tideData.ukhoAccountEmail || "";
-  document.getElementById("tideDataStationLabel").textContent = `${tideData.stationName || "Oban"} ${tideData.stationId || "0372"} (${tideData.timeStandard || "UT"})`;
+  document.getElementById("tideDataStationLabel").textContent = `${tideData.stationName || "Oban"} ${tideData.stationId || "0372"} (${timeBasisLabel()})`;
   document.getElementById("tideDataKeyLabel").textContent = tideData.ukhoApiKeySet ? "Set" : "Not set";
   document.getElementById("tideDataFetchedLabel").textContent = fmtDateTime(tideData.cache?.fetchedAt);
   document.getElementById("tideDataCountLabel").textContent = String(events.length);
@@ -932,15 +1021,16 @@ function renderTideDataManager() {
   tbody.innerHTML = events.map((event, index) => {
     const range = pairedTideRange(events, index);
     const spring = springPercentFromRange(range);
-    const date = eventDate(event);
+    const rawDate = eventDate(event);
+    const display = eventDisplayParts(event);
     return `
       <tr>
-        <td>${escapeHtml(date)}</td>
+        <td>${escapeHtml(display.date)}</td>
         <td>${eventLabel(event)}</td>
-        <td>${eventTime(event)} ${escapeHtml(tideData.timeStandard || "UT")}</td>
+        <td>${escapeHtml(display.time)} ${escapeHtml(display.label)}</td>
         <td>${fmt(Number(event.Height), 2, " m")}</td>
         <td>${Number.isFinite(spring) ? fmt(spring, 0, "%") : "-"}</td>
-        <td><button type="button" data-use-tide-date="${escapeHtml(date)}">Use this day</button></td>
+        <td><button type="button" data-use-tide-date="${escapeHtml(rawDate)}">Use this day</button></td>
       </tr>
     `;
   }).join("");
@@ -958,7 +1048,10 @@ function persistObanReferenceFromFields() {
 }
 
 function formatClock(date) {
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (displayTimeMode() === "ut") {
+    return `${String(date.getUTCHours()).padStart(2, "0")}:${String(date.getUTCMinutes()).padStart(2, "0")} UT`;
+  }
+  return `${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} local`;
 }
 
 function interpolateTwelfths(progress) {
@@ -1006,7 +1099,7 @@ function tideAtMinute(tide, minute) {
 function currentTide() {
   const input = currentInputs();
   const now = new Date();
-  const nowMinutes = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+  const nowMinutes = nowMinutesForDisplayMode(now);
   const hw = timeMinutes("hwTime");
   const lw = timeMinutes("lwTime");
   const halfCycleMinutes = 12 * 60 + 25;
@@ -1364,9 +1457,7 @@ function renderTideCurve() {
     ? selectedSecondaryPort().name
     : "Oban";
   const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const nowMinutes = (now - todayStart) / 60000;
+  const nowMinutes = nowMinutesForDisplayMode(now);
   const width = 680;
   const height = 170;
   const left = 76;
@@ -1390,7 +1481,7 @@ function renderTideCurve() {
   const path = samples.map((sample, index) => `${index === 0 ? "M" : "L"}${xFor(sample.minute)} ${yFor(sample.height)}`).join(" ");
   target.append(
     svg("rect", { x: 0, y: 0, width: 820, height: 280, fill: "#ffffff" }),
-    svg("text", { x: left, y: 24, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`24 hour tide curve: ${tideSourceLabel}`)]),
+    svg("text", { x: left, y: 24, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`24 hour tide curve: ${tideSourceLabel} (${timeBasisLabel()})`)]),
     svg("line", { x1: left, y1: top, x2: left, y2: bottom, stroke: "#9aa8b3" }),
     svg("line", { x1: left, y1: bottom, x2: left + width, y2: bottom, stroke: "#9aa8b3" }),
     svg("path", { d: path, fill: "none", stroke: "#1f6f8b", "stroke-width": 4, "stroke-linecap": "round", "stroke-linejoin": "round" })
@@ -1399,7 +1490,7 @@ function renderTideCurve() {
     const x = xFor(minute);
     target.append(
       svg("line", { x1: x, y1: top, x2: x, y2: bottom, stroke: "#e2e8ee", "stroke-width": 1 }),
-      svg("text", { x: x - 14, y: bottom + 22, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(minutesToTime(minute))])
+      svg("text", { x: x - 14, y: bottom + 22, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(minute === 1440 ? "24:00" : minutesToTime(minute))])
     );
   });
   [minHeight, maxHeight].forEach((value) => {
@@ -1608,6 +1699,7 @@ document.getElementById("saveTideDataSettings").addEventListener("click", async 
         stationName: document.getElementById("tideDataStationName").value.trim(),
         stationId: document.getElementById("tideDataStationId").value.trim(),
         timeStandard: document.getElementById("tideDataTimeStandard").value.trim(),
+        displayTimeMode: document.getElementById("tideDataDisplayMode").value,
         ukhoAccountEmail: document.getElementById("tideDataAccountEmail").value.trim(),
         ukhoApiKey: document.getElementById("tideDataApiKey").value.trim()
       })
@@ -1630,6 +1722,7 @@ document.getElementById("clearTideDataKey").addEventListener("click", async () =
         stationName: document.getElementById("tideDataStationName").value.trim(),
         stationId: document.getElementById("tideDataStationId").value.trim(),
         timeStandard: document.getElementById("tideDataTimeStandard").value.trim(),
+        displayTimeMode: document.getElementById("tideDataDisplayMode").value,
         ukhoAccountEmail: document.getElementById("tideDataAccountEmail").value.trim(),
         clearUkhoApiKey: true
       })
@@ -1652,7 +1745,8 @@ document.getElementById("refreshTideData").addEventListener("click", async () =>
       body: JSON.stringify({
         stationName: document.getElementById("tideDataStationName").value.trim(),
         stationId: document.getElementById("tideDataStationId").value.trim(),
-        timeStandard: document.getElementById("tideDataTimeStandard").value.trim()
+        timeStandard: document.getElementById("tideDataTimeStandard").value.trim(),
+        displayTimeMode: document.getElementById("tideDataDisplayMode").value
       })
     });
     if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `provider returned ${response.status}`);
@@ -1666,6 +1760,31 @@ document.getElementById("refreshTideData").addEventListener("click", async () =>
 document.getElementById("tideDataTable").addEventListener("click", (event) => {
   const date = event.target.dataset.useTideDate;
   if (date) applyTideDataDate(date);
+});
+
+document.getElementById("tideDataDisplayMode").addEventListener("change", async (event) => {
+  const previousMode = displayTimeMode();
+  serverState.tideData.displayTimeMode = event.target.value === "local" ? "local" : "ut";
+  try {
+    const response = await fetch("/api/tide-data/settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        stationName: document.getElementById("tideDataStationName").value.trim(),
+        stationId: document.getElementById("tideDataStationId").value.trim(),
+        timeStandard: document.getElementById("tideDataTimeStandard").value.trim(),
+        displayTimeMode: serverState.tideData.displayTimeMode,
+        ukhoAccountEmail: document.getElementById("tideDataAccountEmail").value.trim()
+      })
+    });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `server returned ${response.status}`);
+    serverState.tideData = await response.json();
+  } catch (error) {
+    serverState.tideData.displayTimeMode = previousMode;
+    document.getElementById("tideDataStatusLabel").textContent = `Time display save failed: ${error.message}`;
+  }
+  applyServerStateToTideFields();
+  renderAll();
 });
 
 document.getElementById("secondaryPortsTable").addEventListener("click", (event) => {
