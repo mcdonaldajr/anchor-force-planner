@@ -2,7 +2,7 @@
 
 Local web app version of `Anchor Force.xlsx`.
 
-It calculates anchor wind load, tidal-stream load, HW-set rode length, per-tide-state scope, estimated combined chain/rope catenary, seabed rode, rope-on-seabed risk, weight to lift, tide-derived or echo-sounder depth now, and keel clearance. Boat-specific constants live on the **Boat Settings** tab. The **Tide** tab accepts local HW/LW times and heights for the anchorage and estimates tide rise now with the rule of twelfths.
+It calculates anchor wind load, tidal-stream load, HW-set rode length, per-tide-state scope, estimated combined chain/rope catenary, seabed rode, rope-on-seabed risk, weight to lift, tide-derived or echo-sounder depth now, and keel clearance. Boat-specific constants live on the **Boat Settings** tab. The **Tide** tab accepts Oban HW/LW times and heights, can apply user-entered secondary-port corrections, and estimates tide rise now with the rule of twelfths.
 
 Use **Save settings** to make the current planner, tide, and boat settings the defaults for this browser.
 
@@ -12,6 +12,8 @@ The anchor drag check uses the entered anchor UHC as ideal near-horizontal holdi
 
 The **About** tab shows the web and server version numbers so you can check whether a Lubuntu machine has the latest pull.
 
+Tide source, Oban tide entries, selected secondary port, secondary-port correction table, and deleted built-in port ids are stored on the server in `data/anchor-force-state.json`.
+
 ## Model Notes
 
 These calculations are planning estimates, not certified engineering or a substitute for local judgement.
@@ -19,6 +21,8 @@ These calculations are planning estimates, not certified engineering or a substi
 - Wind load uses a drag equation estimate: `0.0165 * projectedWindageArea * windSpeed^2`, where projected windage area is estimated as `LOA^2 * windageFactor`. The default windage factor is deliberately conservative for a 10 m cruising yacht; adjust it if you know the boat's projected windage.
 - Tidal-stream load uses the same drag-equation approach in water: `13.2 * LOA * draft * underwaterDragFactor * tidalStream^2`.
 - Tide rise uses the rule of twelfths between the entered LW and HW. It is a quick interpolation only; tide curves, barometric pressure, surge, river flow, and local effects can make real water levels differ.
+- Secondary-port times can be a fixed offset from Oban or spring/neap offsets interpolated from today's Oban HW/LW height. Secondary-port heights can be fixed offsets or MHWS/MHWN/MLWN/MLWS levels interpolated from Oban reference levels: MHWS 4.0 m, MHWN 2.9 m, MLWN 1.8 m, MLWS 0.7 m.
+- Built-in editable secondary ports currently include Tobermory, Port Ellen, and Loch Melfort from user-entered almanac-style data. Where LW time corrections were not supplied, the app uses the same fixed offset as HW or 0 minutes and records that caveat in the port note. The app does not bundle UKHO/Reeds correction tables; enter only data you are licensed to use.
 - Catenary is estimated separately for lifted chain and lifted rope. Surplus rode can lie on the seabed, and the diagram caps deployed rode at chain plus rope carried.
 - Anchor holding is highly seabed- and set-dependent. The UHC input should be treated as an ideal near-horizontal holding value. The app applies a simple pull-angle reduction, but it cannot model seabed type, veering, snatch loads, yawing, fouling, weed, or shock loading.
 

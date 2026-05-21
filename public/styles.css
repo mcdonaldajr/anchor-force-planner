@@ -34,7 +34,8 @@ body {
 }
 
 h1,
-h2 {
+h2,
+h3 {
   margin: 0;
 }
 
@@ -47,13 +48,19 @@ h2 {
   font-size: 17px;
 }
 
+h3 {
+  margin: 10px 0 8px;
+  font-size: 14px;
+}
+
 p {
   margin: 3px 0 0;
   color: var(--muted);
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -68,6 +75,12 @@ button {
 
 button:hover {
   filter: brightness(0.96);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.3);
+  opacity: 0.55;
 }
 
 .dangerButton {
@@ -246,7 +259,8 @@ label {
   background: #fff;
 }
 
-input {
+input,
+select {
   min-width: 0;
   width: 100%;
   border: 0;
@@ -258,6 +272,11 @@ input {
 input[readonly] {
   background: #f3f6f8;
   color: var(--muted);
+}
+
+select {
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
 
 .inputWithUnit span {
@@ -294,6 +313,10 @@ input[readonly] {
 .depthSourceButton.active {
   background: var(--water);
   color: #fff;
+}
+
+.tideSourcePanel {
+  margin: 0 0 10px;
 }
 
 .depthCompare {
@@ -469,6 +492,10 @@ input[readonly] {
   font-size: 22px;
 }
 
+.compactSummary {
+  margin-bottom: 0;
+}
+
 .summary div {
   background: #fff;
   padding: 7px 8px;
@@ -533,6 +560,35 @@ input[readonly] {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fff;
+}
+
+.secondaryPreview {
+  margin-top: 10px;
+}
+
+.secondaryPreview .panelHeader {
+  align-items: center;
+}
+
+.secondaryActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.secondaryTable {
+  margin-top: 12px;
+}
+
+.tableActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.tableActions button {
+  padding: 5px 8px;
+  font-size: 12px;
 }
 
 table {

@@ -28,6 +28,7 @@
       <nav class="tabs" aria-label="Planner tabs">
         <button class="tabButton active" type="button" data-tab="planner">Planner</button>
         <button class="tabButton" type="button" data-tab="tide">Tide</button>
+        <button class="tabButton" type="button" data-tab="secondaryPorts">Secondary Ports</button>
         <button class="tabButton" type="button" data-tab="boatSettings">Boat Settings</button>
         <button class="tabButton" type="button" data-tab="scope">Depth Sweep</button>
         <button class="tabButton" type="button" data-tab="force">Wind Force</button>
@@ -119,10 +120,22 @@
         <div class="panelHeader">
           <div>
             <h2>Tide</h2>
-            <p>Enter local tide data for the anchorage. Tide rise now is estimated with the rule of twelfths.</p>
+            <p>Enter Oban tide data, then optionally apply a saved secondary-port correction.</p>
           </div>
         </div>
         <section class="inputPanel settingsPanel" aria-label="Tide settings">
+          <div class="depthSourcePanel tideSourcePanel" aria-label="Tide source">
+            <div class="depthSourceButtons" role="group" aria-label="Tide source used in calculations">
+              <button class="depthSourceButton tideSourceButton active" type="button" data-tide-source="oban" title="Use the entered Oban HW/LW times and heights in all tide calculations.">Use Oban</button>
+              <button class="depthSourceButton tideSourceButton" type="button" data-tide-source="secondary" title="Use the selected secondary port's calculated HW/LW times and heights in all tide calculations.">Use secondary port</button>
+            </div>
+            <label title="Saved secondary port correction to apply to the Oban standard-port values.">Secondary port
+              <select id="secondaryPortSelect">
+                <option value="">No secondary port selected</option>
+              </select>
+            </label>
+          </div>
+          <h3>Oban standard port</h3>
           <div class="inputGrid settingsGrid">
             <label title="Local high-water time nearest the anchoring period. Use local time from a tide table for the anchorage or nearest standard port.">HW time
               <span class="inputWithUnit"><input id="hwTime" type="time" value="15:00"><span>local</span></span>
@@ -137,6 +150,21 @@
               <span class="inputWithUnit"><input id="lwHeight" type="number" value="1" min="-2" max="15" step="0.1"><span>m</span></span>
             </label>
           </div>
+          <section class="secondaryPreview" aria-label="Calculated secondary port tide">
+            <div class="panelHeader">
+              <div>
+                <h3>Calculated secondary port</h3>
+                <p>Applies the selected port's saved corrections to the Oban values above.</p>
+              </div>
+              <button id="calculateSecondaryTide" type="button" title="Recalculate the selected secondary port from the current Oban entries.">Calculate selected port</button>
+            </div>
+            <section class="tideSummary compactSummary" aria-live="polite">
+              <div><span>HW time</span><strong id="secondaryHwTime">-</strong></div>
+              <div><span>LW time</span><strong id="secondaryLwTime">-</strong></div>
+              <div><span>HW height</span><strong id="secondaryHwHeight">-</strong></div>
+              <div><span>LW height</span><strong id="secondaryLwHeight">-</strong></div>
+            </section>
+          </section>
         </section>
         <section id="tideSummary" class="tideSummary" aria-live="polite">
           <div><span>Time now</span><strong id="currentTimeLabel">-</strong></div>
@@ -145,6 +173,98 @@
           <div><span>Low-water clearance</span><strong id="lowWaterClearanceLabel">-</strong></div>
         </section>
         <section id="tideStatus" class="statusBanner">-</section>
+      </section>
+
+      <section id="secondaryPortsPanel" class="tabPanel">
+        <div class="panelHeader">
+          <div>
+            <h2>Secondary Ports</h2>
+            <p>Maintain your own correction table from Oban. Enter data only from sources you are licensed to use.</p>
+          </div>
+        </div>
+        <section class="inputPanel settingsPanel" aria-label="Secondary port editor">
+          <div class="inputGrid settingsGrid">
+            <label title="Secondary port or anchorage name shown in the Tide tab pulldown.">Port name
+              <input id="secondaryPortName" type="text" placeholder="e.g. Tobermory">
+            </label>
+            <label title="Choose fixed when the correction is the same on every tide; choose springs/neaps when the almanac gives separate spring and neap corrections.">HW time mode
+              <select id="secondaryHwTimeMode">
+                <option value="fixed">Fixed correction</option>
+                <option value="levels">Springs/neaps</option>
+              </select>
+            </label>
+            <label title="Minutes to add to Oban HW time for a fixed correction. Use negative values if the secondary port is earlier than Oban.">HW fixed correction
+              <span class="inputWithUnit"><input id="secondaryHwOffset" type="number" value="0" step="1"><span>min</span></span>
+            </label>
+            <label title="Minutes to add to Oban HW at springs. Example: -330 means Oban minus 5 hours 30 minutes.">HW springs correction
+              <span class="inputWithUnit"><input id="secondaryHwSpringOffset" type="number" value="0" step="1"><span>min</span></span>
+            </label>
+            <label title="Minutes to add to Oban HW at neaps. The app interpolates between spring and neap values from today's Oban tide height.">HW neaps correction
+              <span class="inputWithUnit"><input id="secondaryHwNeapOffset" type="number" value="0" step="1"><span>min</span></span>
+            </label>
+            <label title="Choose fixed when LW time uses one correction; choose springs/neaps when LW has separate spring and neap corrections.">LW time mode
+              <select id="secondaryLwTimeMode">
+                <option value="fixed">Fixed correction</option>
+                <option value="levels">Springs/neaps</option>
+              </select>
+            </label>
+            <label title="Minutes to add to Oban LW time for a fixed correction. Use negative values if the secondary port is earlier than Oban.">LW fixed correction
+              <span class="inputWithUnit"><input id="secondaryLwOffset" type="number" value="0" step="1"><span>min</span></span>
+            </label>
+            <label title="Minutes to add to Oban LW at springs. Leave at 0 only if the source does not provide a LW correction.">LW springs correction
+              <span class="inputWithUnit"><input id="secondaryLwSpringOffset" type="number" value="0" step="1"><span>min</span></span>
+            </label>
+            <label title="Minutes to add to Oban LW at neaps. Leave at 0 only if the source does not provide a LW correction.">LW neaps correction
+              <span class="inputWithUnit"><input id="secondaryLwNeapOffset" type="number" value="0" step="1"><span>min</span></span>
+            </label>
+            <label title="Choose springs/neaps when the source gives MHWS/MHWN/MLWN/MLWS. Fixed offsets remain available for rough local corrections.">Height mode
+              <select id="secondaryHeightMode">
+                <option value="levels">MHWS/MHWN/MLWN/MLWS</option>
+                <option value="fixed">Fixed correction</option>
+              </select>
+            </label>
+            <label title="Mean High Water Springs at the secondary port, in metres above chart datum.">MHWS
+              <span class="inputWithUnit"><input id="secondaryMhws" type="number" value="0" step="0.1"><span>m</span></span>
+            </label>
+            <label title="Mean High Water Neaps at the secondary port, in metres above chart datum.">MHWN
+              <span class="inputWithUnit"><input id="secondaryMhwn" type="number" value="0" step="0.1"><span>m</span></span>
+            </label>
+            <label title="Mean Low Water Neaps at the secondary port, in metres above chart datum.">MLWN
+              <span class="inputWithUnit"><input id="secondaryMlwn" type="number" value="0" step="0.1"><span>m</span></span>
+            </label>
+            <label title="Mean Low Water Springs at the secondary port, in metres above chart datum.">MLWS
+              <span class="inputWithUnit"><input id="secondaryMlws" type="number" value="0" step="0.1"><span>m</span></span>
+            </label>
+            <label title="Metres to add to Oban HW height when using fixed height correction. Use negative values if the secondary port HW is lower.">HW fixed height correction
+              <span class="inputWithUnit"><input id="secondaryHwHeightOffset" type="number" value="0" step="0.1"><span>m</span></span>
+            </label>
+            <label title="Metres to add to Oban LW height when using fixed height correction. Use negative values if the secondary port LW is lower.">LW fixed height correction
+              <span class="inputWithUnit"><input id="secondaryLwHeightOffset" type="number" value="0" step="0.1"><span>m</span></span>
+            </label>
+            <label title="Optional source, year, almanac page, caveat, or note for this correction.">Notes
+              <input id="secondaryPortNotes" type="text" placeholder="source/year/notes">
+            </label>
+          </div>
+          <div class="secondaryActions">
+            <button id="saveSecondaryPort" type="button">Add secondary port</button>
+            <button id="clearSecondaryPort" type="button">Clear form</button>
+          </div>
+        </section>
+        <section class="tableWrap secondaryTable">
+          <table id="secondaryPortsTable">
+            <thead>
+              <tr>
+                <th>Port</th>
+                <th>HW time</th>
+                <th>LW time</th>
+                <th>Heights</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
       </section>
 
       <section id="boatSettingsPanel" class="tabPanel">
