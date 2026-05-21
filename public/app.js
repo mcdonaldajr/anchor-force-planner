@@ -1,4 +1,4 @@
-const webVersion = "0.5.7";
+const webVersion = "0.5.8";
 const halfCycleMinutes = 12 * 60 + 25;
 
 const defaults = {
@@ -270,9 +270,34 @@ function tideHeightForDate(input, date = new Date()) {
   return tideHeightBetween(bracket.before, bracket.after, bracket.nowMinutes);
 }
 
+function nextTideEvent(type, now = new Date()) {
+  const timeline = plannerTideTimeline(now);
+  const nowMinute = (now.getTime() - displayDayStart(now)) / 60000;
+  return timeline.find((event) => event.type === type && event.minute > nowMinute);
+}
+
+function safetyTideHeights(selectedView = null, now = new Date()) {
+  const fallback = activeTideValues(now);
+  const safetyGroup = selectedView?.group && selectedView.group !== "Now" ? selectedView.group : "Next";
+  const views = plannerTideViews(now);
+  const groupHighWater = views.find((view) => view.group === safetyGroup && view.type === "HW");
+  const groupLowWater = views.find((view) => view.group === safetyGroup && view.type === "LW");
+  const nextHighWater = groupHighWater || nextTideEvent("HW", now);
+  const nextLowWater = groupLowWater || nextTideEvent("LW", now);
+  return {
+    hwHeight: Number(nextHighWater?.height ?? fallback.hwHeight ?? 0),
+    lwHeight: Number(nextLowWater?.height ?? fallback.lwHeight ?? 0),
+    nextHighWater,
+    nextLowWater
+  };
+}
+
 function currentInputs() {
   const view = selectedPlannerTideView();
   const input = baseInputs(view.date);
+  const safety = safetyTideHeights(view);
+  input.hwHeight = safety.hwHeight;
+  input.lwHeight = safety.lwHeight;
   input.tideHeight = view.height;
   return input;
 }
@@ -911,12 +936,12 @@ function calculateIdealRode(input = currentInputs()) {
   const notes = [];
 
   notes.push(`${fmt(wind, 0, " kn")} wind plus ${fmt(input.tidalStream, 1, " kn")} tidal stream gives an equivalent load of about ${fmt(equivalentWind, 0, " kn")} wind.`);
-  notes.push(`That sets the HW recommendation at ${fmt(desired, 1, ":1")}.`);
+  notes.push(`That sets the selected-HW recommendation at ${fmt(desired, 1, ":1")}.`);
   if (idealLength > totalRode) notes.push(`Available rode caps this at ${fmt(totalRode, 1, " m")}.`);
   if (result.highWaterChainOnSeabed < 5) {
-    notes.push(`At HW, estimated catenary leaves only ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed.`);
+    notes.push(`At the selected HW, estimated catenary leaves only ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed.`);
   } else {
-    notes.push(`Keeps about ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed at HW with these settings.`);
+    notes.push(`Keeps about ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed at the selected HW with these settings.`);
   }
 
   return {
@@ -933,7 +958,7 @@ function showIdealRodeRecommendation(recommendation) {
   const panel = document.getElementById("scopeRecommendation");
   panel.classList.add("hasRecommendation");
   panel.querySelector("strong").textContent = fmt(recommendation.rodeLength, 1, " m");
-  panel.querySelector("p").textContent = `${recommendation.notes.join(" ")} HW scope: ${fmt(recommendation.scope, 1, ":1")}.`;
+  panel.querySelector("p").textContent = `${recommendation.notes.join(" ")} Selected-HW scope: ${fmt(recommendation.scope, 1, ":1")}.`;
 }
 
 function clearIdealRodeRecommendation() {
@@ -1296,6 +1321,7 @@ function tideEventView(event, groupLabel) {
   return {
     key: tideViewEventKey(event),
     label: `${groupLabel} ${event.type}`,
+    group: groupLabel,
     time,
     height: Number(event.height || 0),
     type: event.type,
@@ -1312,6 +1338,7 @@ function plannerTideViews(now = new Date()) {
     return [{
       key: "now",
       label: "Now",
+      group: "Now",
       time: formatClock(now),
       height: tideHeightForDate(input, now),
       type: "Now",
@@ -1331,6 +1358,7 @@ function plannerTideViews(now = new Date()) {
     {
       key: "now",
       label: "Now",
+      group: "Now",
       time: formatClock(now),
       height: nowHeight,
       type: "Now",
@@ -1418,13 +1446,13 @@ function statusText(result) {
   if (result.lowWaterClearance < 0) {
     return {
       level: "danger",
-      text: `Grounding risk: low-water depth is ${fmt(Math.abs(result.lowWaterClearance), 1, " m")} less than draft.`
+      text: `Grounding risk at selected low water: predicted depth is ${fmt(Math.abs(result.lowWaterClearance), 1, " m")} less than draft.`
     };
   }
   if (result.clearanceMargin < 0) {
     return {
       level: "warning",
-      text: `Low-water clearance is ${fmt(result.lowWaterClearance, 1, " m")}, below the ${fmt(number("minClearance"), 1, " m")} minimum.`
+      text: `Selected low-water clearance is ${fmt(result.lowWaterClearance, 1, " m")}, below the ${fmt(number("minClearance"), 1, " m")} minimum.`
     };
   }
   if (result.shortfall > 0) {
@@ -1436,13 +1464,13 @@ function statusText(result) {
   if (result.anchorHoldingMargin < 0) {
     return {
       level: "danger",
-      text: `Anchor drag risk at high water: estimated holding is ${fmt(result.effectiveAnchorHolding, 0, " kgf")} against ${fmt(result.horizontalLoad, 0, " kgf")} load.`
+      text: `Anchor drag risk at selected high water: estimated holding is ${fmt(result.effectiveAnchorHolding, 0, " kgf")} against ${fmt(result.horizontalLoad, 0, " kgf")} load.`
     };
   }
   if (result.anchorHoldingMargin < result.horizontalLoad * 0.25) {
     return {
       level: "warning",
-      text: `Anchor holding margin is low at high water: about ${fmt(result.anchorHoldingMargin, 0, " kgf")} after pull-angle allowance.`
+      text: `Anchor holding margin is low at selected high water: about ${fmt(result.anchorHoldingMargin, 0, " kgf")} after pull-angle allowance.`
     };
   }
   if (result.lowWaterRopeOnSeabed > 0) {
@@ -1454,12 +1482,12 @@ function statusText(result) {
   if (result.highWaterChainOnSeabed < 5) {
     return {
       level: "warning",
-      text: `Estimated catenary leaves only ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed at high water.`
+      text: `Estimated catenary leaves only ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed at selected high water.`
     };
   }
   return {
     level: "good",
-    text: `Rode length is within available rode, with about ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed at high water.`
+    text: `Rode length is within available rode, with about ${fmt(result.highWaterChainOnSeabed, 1, " m")} of chain on the seabed at selected high water.`
   };
 }
 
