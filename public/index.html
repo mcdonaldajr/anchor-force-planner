@@ -20,14 +20,14 @@
       </section>
 
       <nav class="tabs" aria-label="Planner tabs">
-        <button class="tabButton active" type="button" data-tab="planner">Planner</button>
-        <button class="tabButton" type="button" data-tab="tide">Tide</button>
-        <button class="tabButton" type="button" data-tab="tideData">Tide Data</button>
-        <button class="tabButton" type="button" data-tab="secondaryPorts">Secondary Ports</button>
-        <button class="tabButton" type="button" data-tab="settings">Settings</button>
-        <button class="tabButton" type="button" data-tab="force">Wind Force</button>
-        <button class="tabButton" type="button" data-tab="formulas">Formulas</button>
-        <button class="tabButton" type="button" data-tab="about">About</button>
+        <button class="tabButton active" type="button" data-tab="planner" title="Main anchoring planner: enter conditions, choose a tide view, and see rode, clearance, catenary, and anchor holding checks.">Planner</button>
+        <button class="tabButton" type="button" data-tab="tide" title="Manual tide entry and secondary-port selection. Shows current tide rise, spring percentage, keel clearance, and tide curve.">Tide</button>
+        <button class="tabButton" type="button" data-tab="tideData" title="Fetch and inspect downloaded Oban tide events from the configured tide API.">Tide Data</button>
+        <button class="tabButton" type="button" data-tab="secondaryPorts" title="Add, edit, or delete almanac-style secondary-port corrections.">Secondary Ports</button>
+        <button class="tabButton" type="button" data-tab="settings" title="Boat constants, ground tackle, echo-sounder mode, API settings, and save/reset controls.">Settings</button>
+        <button class="tabButton" type="button" data-tab="force" title="Wind force lookup table and curve using the current boat windage settings.">Wind Force</button>
+        <button class="tabButton" type="button" data-tab="formulas" title="Formula notes for the calculations used by the app.">Formulas</button>
+        <button class="tabButton" type="button" data-tab="about" title="Web and server version details, useful for confirming a Lubuntu update has taken effect.">About</button>
       </nav>
 
       <section id="plannerPanel" class="tabPanel active">
@@ -78,7 +78,7 @@
               <span>Recommended rode</span>
               <strong>-</strong>
               <p>Use the button to calculate a recommendation from the conditions now and boat settings.</p>
-              <button id="applyIdealRode" type="button">Apply rode</button>
+              <button id="applyIdealRode" type="button" title="Copy the recommended rode length into the Rode length input.">Apply rode</button>
             </section>
           </section>
 
@@ -148,19 +148,19 @@
               </div>
             </div>
             <section class="tideSummary compactSummary" aria-live="polite">
-              <div><span>HW time</span><strong id="secondaryHwTime">-</strong></div>
-              <div><span>LW time</span><strong id="secondaryLwTime">-</strong></div>
-              <div><span>HW height</span><strong id="secondaryHwHeight">-</strong></div>
-              <div><span>LW height</span><strong id="secondaryLwHeight">-</strong></div>
+              <div title="Calculated high-water time after applying the selected secondary port's HW correction to Oban."><span>HW time</span><strong id="secondaryHwTime">-</strong></div>
+              <div title="Calculated low-water time after applying the selected secondary port's LW correction to Oban."><span>LW time</span><strong id="secondaryLwTime">-</strong></div>
+              <div title="Calculated secondary-port high-water height after interpolating height differences."><span>HW height</span><strong id="secondaryHwHeight">-</strong></div>
+              <div title="Calculated secondary-port low-water height after interpolating height differences."><span>LW height</span><strong id="secondaryLwHeight">-</strong></div>
             </section>
           </section>
         </section>
         <section id="tideSummary" class="tideSummary" aria-live="polite">
-          <div><span>Time now</span><strong id="currentTimeLabel">-</strong></div>
-          <div><span>Tide rise now</span><strong id="currentRiseLabel">-</strong></div>
-          <div><span>% Spring</span><strong id="springPercentLabel">-</strong></div>
-          <div><span>Keel clearance now</span><strong id="currentDepthLabel">-</strong></div>
-          <div><span>Low-water clearance</span><strong id="lowWaterClearanceLabel">-</strong></div>
+          <div title="The actual clock time used for the Tide tab's present-time calculation."><span>Time now</span><strong id="currentTimeLabel">-</strong></div>
+          <div title="Estimated current tide height above chart datum from downloaded events or entered HW/LW values."><span>Tide rise now</span><strong id="currentRiseLabel">-</strong></div>
+          <div title="How spring-like the current tide range is, based on Oban reference levels. Values can be below 0% or above 100%."><span>% Spring</span><strong id="springPercentLabel">-</strong></div>
+          <div title="Estimated depth beneath keel right now using the selected depth source."><span>Keel clearance now</span><strong id="currentDepthLabel">-</strong></div>
+          <div title="Predicted depth beneath keel at the relevant low water for the Tide tab. This is the grounding check on this tab."><span>Low-water clearance</span><strong id="lowWaterClearanceLabel">-</strong></div>
         </section>
         <section class="chartPanel tideCurvePanel" aria-label="24 hour tide curve">
           <svg id="tideCurve" viewBox="0 0 820 280" role="img" aria-label="24 hour tide curve"></svg>
@@ -177,11 +177,11 @@
           <button id="refreshTideData" type="button" title="Fetch fresh Oban tide data, or use today's server cache if it is still fresh.">Refresh tides</button>
         </div>
         <section class="tideSummary compactSummary" aria-label="Tide data status">
-          <div><span>Station</span><strong id="tideDataStationLabel">-</strong></div>
-          <div><span>API key</span><strong id="tideDataKeyLabel">-</strong></div>
-          <div><span>Fetched</span><strong id="tideDataFetchedLabel">-</strong></div>
-          <div><span>Events</span><strong id="tideDataCountLabel">-</strong></div>
-          <div><span>Status</span><strong id="tideDataStatusLabel">-</strong></div>
+          <div title="Configured standard-port tide station used for downloads."><span>Station</span><strong id="tideDataStationLabel">-</strong></div>
+          <div title="Whether the local server has an API key stored or available from the environment."><span>API key</span><strong id="tideDataKeyLabel">-</strong></div>
+          <div title="When the local server last fetched or cached tide data."><span>Fetched</span><strong id="tideDataFetchedLabel">-</strong></div>
+          <div title="Number of downloaded high-water and low-water events currently available."><span>Events</span><strong id="tideDataCountLabel">-</strong></div>
+          <div title="Whether the displayed tide data is fresh, cached, stale, or unavailable."><span>Status</span><strong id="tideDataStatusLabel">-</strong></div>
         </section>
         <section class="tableWrap secondaryTable" aria-label="Fetched Oban tide events">
           <table id="tideDataTable">
@@ -278,8 +278,8 @@
             <input id="secondaryPortNotes" type="text" placeholder="source/year/notes">
           </label>
           <div class="secondaryActions">
-            <button id="saveSecondaryPort" type="button">Add secondary port</button>
-            <button id="clearSecondaryPort" type="button">Clear form</button>
+            <button id="saveSecondaryPort" type="button" title="Save this secondary-port correction table. Editing an existing port updates it.">Add secondary port</button>
+            <button id="clearSecondaryPort" type="button" title="Clear the secondary-port editor without deleting saved ports.">Clear form</button>
           </div>
         </section>
         <section class="tableWrap secondaryTable">
@@ -393,16 +393,16 @@
             </label>
           </div>
           <div class="secondaryActions">
-            <button id="saveTideDataSettings" type="button">Save system settings</button>
-            <button id="clearTideDataKey" class="dangerButton" type="button">Clear API key</button>
+            <button id="saveTideDataSettings" type="button" title="Save station, time display, account email, and any entered API key on the local server.">Save system settings</button>
+            <button id="clearTideDataKey" class="dangerButton" type="button" title="Remove the stored local API key from the server. Environment keys are not changed.">Clear API key</button>
           </div>
         </section>
         <section class="inputPanel settingsPanel settingsActionsPanel" aria-label="Settings actions">
           <h3>Settings actions</h3>
           <div class="secondaryActions">
-            <button id="saveDefaults" type="button">Save settings</button>
-            <button id="resetDefaults" type="button">Reset settings</button>
-            <button id="stopServer" class="dangerButton" type="button">Stop server</button>
+            <button id="saveDefaults" type="button" title="Save the current planner inputs, boat settings, and display choices as this browser's defaults.">Save settings</button>
+            <button id="resetDefaults" type="button" title="Reload the saved browser defaults, or built-in defaults if none have been saved.">Reset settings</button>
+            <button id="stopServer" class="dangerButton" type="button" title="Ask the local Node server to stop. Use the desktop launcher to start it again.">Stop server</button>
           </div>
         </section>
       </section>
@@ -458,10 +458,10 @@
           </div>
         </div>
         <section class="aboutGrid" aria-label="App version details">
-          <div><span>Web version</span><strong id="webVersion">-</strong></div>
-          <div><span>Server version</span><strong id="serverVersion">-</strong></div>
-          <div><span>Server address</span><strong id="serverAddress">-</strong></div>
-          <div><span>Server started</span><strong id="serverStarted">-</strong></div>
+          <div title="Version of the browser files currently loaded."><span>Web version</span><strong id="webVersion">-</strong></div>
+          <div title="Version reported by the local Node server. If this differs from Web version, restart the server."><span>Server version</span><strong id="serverVersion">-</strong></div>
+          <div title="Address and port reported by the local server. Use this host and port from an iPad on the same network."><span>Server address</span><strong id="serverAddress">-</strong></div>
+          <div title="When the local server process started. If this predates a git pull, restart the server."><span>Server started</span><strong id="serverStarted">-</strong></div>
         </section>
       </section>
     </main>
