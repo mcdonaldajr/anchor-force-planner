@@ -1,4 +1,4 @@
-const webVersion = "0.5.10";
+const webVersion = "0.5.11";
 const halfCycleMinutes = 12 * 60 + 25;
 
 const defaults = {
@@ -21,8 +21,8 @@ const defaults = {
   chainWll: 800,
   chainBreak: 4030,
   ropeDiameter: 14,
-  ropeWeight: 0.12,
-  ropeBreak: 0,
+  ropeWeight: 0.16,
+  ropeBreak: 3700,
   anchorWeight: 15,
   anchorUhc: 420,
   windageFactor: 0.34,

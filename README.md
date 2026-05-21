@@ -10,6 +10,8 @@ Settings includes boat constants, editable chain/rope reference values, whether 
 
 The anchor drag check uses the entered anchor UHC as ideal near-horizontal holding, then reduces it for the estimated high-water pull angle before comparing it with wind plus tidal-stream load.
 
+Rope defaults use 14 mm LIROS Anchorplait nylon: 0.16 kg/m, from the midpoint of 150-175 g/m, and 3,700 kgf breaking strain as the conservative lower end of the 3,700-4,400 kg range.
+
 The **About** tab shows the web and server version numbers so you can check whether a Lubuntu machine has the latest pull.
 
 Tide source, Oban tide entries, selected secondary port, secondary-port correction table, deleted built-in port ids, Tide Data settings, and fetched tide rows are stored on the server in `data/anchor-force-state.json`. Provider cache files live under `data/cache/`.

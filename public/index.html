@@ -342,11 +342,11 @@
             <label title="Rope diameter. Stored as a boat setting for reference; the catenary model uses rope weight per metre.">Rope diameter
               <span class="inputWithUnit"><input id="ropeDiameter" type="number" value="14" min="0" max="40" step="1"><span>mm</span></span>
             </label>
-            <label title="Approximate rope weight per metre. Rope is much lighter than chain, so it contributes little to catenary.">Rope weight
-              <span class="inputWithUnit"><input id="ropeWeight" type="number" value="0.12" min="0" max="2" step="0.01"><span>kg/m</span></span>
+            <label title="Approximate rope weight per metre. Default is 14 mm LIROS Anchorplait nylon at about 150-175 g/m, entered as the midpoint 0.16 kg/m.">Rope weight
+              <span class="inputWithUnit"><input id="ropeWeight" type="number" value="0.16" min="0" max="2" step="0.01"><span>kg/m</span></span>
             </label>
-            <label title="Typical rope breaking load. Optional reference value; enter 0 if unknown.">Rope break
-              <span class="inputWithUnit"><input id="ropeBreak" type="number" value="0" min="0" max="50000" step="10"><span>kgf</span></span>
+            <label title="Typical rope breaking load. Default is the conservative lower end for 14 mm LIROS Anchorplait nylon, around 3,700-4,400 kg.">Rope break
+              <span class="inputWithUnit"><input id="ropeBreak" type="number" value="3700" min="0" max="50000" step="10"><span>kgf</span></span>
             </label>
             <label title="Anchor weight. Used only in the displayed lift-weight estimate, not as holding power.">Anchor weight
               <span class="inputWithUnit"><input id="anchorWeight" type="number" value="15" min="0" max="100" step="1"><span>kg</span></span>
