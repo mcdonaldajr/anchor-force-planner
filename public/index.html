@@ -30,7 +30,7 @@
         <button class="tabButton" type="button" data-tab="tide">Tide</button>
         <button class="tabButton" type="button" data-tab="tideData">Tide Data</button>
         <button class="tabButton" type="button" data-tab="secondaryPorts">Secondary Ports</button>
-        <button class="tabButton" type="button" data-tab="boatSettings">Boat Settings</button>
+        <button class="tabButton" type="button" data-tab="settings">Settings</button>
         <button class="tabButton" type="button" data-tab="scope">Depth Sweep</button>
         <button class="tabButton" type="button" data-tab="force">Wind Force</button>
         <button class="tabButton" type="button" data-tab="formulas">Formulas</button>
@@ -48,7 +48,7 @@
             </div>
 
             <div class="inputGrid">
-              <label title="Expected true wind at the anchorage in knots. Wind load uses the Boat Settings windage factor and increases with wind speed squared.">Wind speed
+              <label title="Expected true wind at the anchorage in knots. Wind load uses the Settings tab windage factor and increases with wind speed squared.">Wind speed
                 <span class="inputWithUnit"><input id="windSpeed" type="number" value="40" min="0" max="90" step="1"><span>kn</span></span>
               </label>
               <label title="Expected tidal stream through the anchorage in knots. This is separate from tide height and is added as horizontal load for catenary, ideal rode, and drag checks.">Tidal stream
@@ -57,7 +57,7 @@
               <label title="Charted depth at chart datum for the spot where the anchor is expected to lie. When using chart + tide, present water depth is charted depth plus calculated tide rise now.">Charted depth
                 <span class="inputWithUnit"><input id="depthLw" type="number" value="5" min="0" max="40" step="0.1"><span>m</span></span>
               </label>
-              <label id="echoDepthLabel" title="Echo sounder reading now. Boat Settings controls whether this is beneath keel or actual water depth from the surface.">Echo below keel now
+              <label id="echoDepthLabel" title="Echo sounder reading now. Settings controls whether this is beneath keel or actual water depth from the surface.">Echo below keel now
                 <span class="inputWithUnit"><input id="echoBelowKeel" type="number" value="6.2" min="0" max="80" step="0.1"><span>m</span></span>
               </label>
               <label title="Calculated from the Tide tab using HW/LW times and heights with the rule of twelfths. Read-only and approximate.">Tide rise now
@@ -70,11 +70,11 @@
             <section class="depthSourcePanel" aria-label="Depth source">
               <div class="depthSourceButtons" role="group" aria-label="Depth source used for calculations">
                 <button class="depthSourceButton active" type="button" data-depth-source="chart" title="Use charted depth plus calculated tide rise now as the present water depth.">Use chart + tide</button>
-                <button class="depthSourceButton" type="button" data-depth-source="sounder" title="Use the echo-sounder reading, adjusted by the Boat Settings echo mode, as the present water depth.">Use echo sounder</button>
+                <button class="depthSourceButton" type="button" data-depth-source="sounder" title="Use the echo-sounder reading, adjusted by the Settings echo mode, as the present water depth.">Use echo sounder</button>
               </div>
               <div class="depthCompare">
                 <div title="Present water depth from charted depth plus calculated tide rise."><span>Chart + tide depth now</span><strong id="chartDepthNow">-</strong></div>
-                <div title="Present water depth from the echo sounder, adjusted by the Boat Settings echo mode."><span>Measured depth now</span><strong id="sounderDepthNow">-</strong></div>
+                <div title="Present water depth from the echo sounder, adjusted by the Settings echo mode."><span>Measured depth now</span><strong id="sounderDepthNow">-</strong></div>
                 <div title="Measured depth minus chart+tide depth. A large difference can mean the charted depth, transducer mode, or tide data is wrong."><span>Difference</span><strong id="depthDifference">-</strong></div>
               </div>
             </section>
@@ -187,35 +187,6 @@
           </div>
           <button id="refreshTideData" type="button" title="Fetch fresh Oban tide data, or use today's server cache if it is still fresh.">Refresh tides</button>
         </div>
-        <section class="inputPanel settingsPanel" aria-label="UKHO tide data settings">
-          <div class="inputGrid settingsGrid">
-            <label title="Standard port name used for the downloaded events.">Station name
-              <input id="tideDataStationName" type="text" value="Oban">
-            </label>
-            <label title="UKHO station ID. Oban is 0372.">UKHO station ID
-              <input id="tideDataStationId" type="text" value="0372" inputmode="numeric">
-            </label>
-            <label title="Time standard reported by UKHO. The Passage Planner treats these events as UT.">Time standard
-              <input id="tideDataTimeStandard" type="text" value="UT">
-            </label>
-            <label title="Choose whether tide-event times, Tide tab HW/LW inputs, and the tide graph are displayed as UT or this browser's local time. Stored UKHO data remains UT.">Display times
-              <select id="tideDataDisplayMode">
-                <option value="ut">UT</option>
-                <option value="local">Local time</option>
-              </select>
-            </label>
-            <label title="Optional note for the ADMIRALTY Developer Portal account used to obtain the key. Stored locally only.">UKHO account email
-              <input id="tideDataAccountEmail" type="email" autocomplete="email" placeholder="you@example.com">
-            </label>
-            <label title="ADMIRALTY UK Tidal API subscription key. Stored on this local server and not returned to the browser after saving.">UKHO API key
-              <input id="tideDataApiKey" type="password" autocomplete="off" placeholder="Leave blank to keep existing key">
-            </label>
-          </div>
-          <div class="secondaryActions">
-            <button id="saveTideDataSettings" type="button">Save tide data settings</button>
-            <button id="clearTideDataKey" class="dangerButton" type="button">Clear API key</button>
-          </div>
-        </section>
         <section class="tideSummary compactSummary" aria-label="Tide data status">
           <div><span>Station</span><strong id="tideDataStationLabel">-</strong></div>
           <div><span>API key</span><strong id="tideDataKeyLabel">-</strong></div>
@@ -339,14 +310,15 @@
         </section>
       </section>
 
-      <section id="boatSettingsPanel" class="tabPanel">
+      <section id="settingsPanel" class="tabPanel">
         <div class="panelHeader">
           <div>
-            <h2>Boat Settings</h2>
-            <p>Values that normally stay fixed for this boat and its anchor setup.</p>
+            <h2>Settings</h2>
+            <p>Boat constants and local system settings for this installation.</p>
           </div>
         </div>
         <section class="inputPanel settingsPanel" aria-label="Boat settings">
+          <h3>Boat settings</h3>
           <div class="inputGrid settingsGrid">
             <label title="Length overall. Used as a simple scale for estimated windage area and underwater area.">Boat LOA
               <span class="inputWithUnit"><input id="loa" type="number" value="10.1" min="2" max="40" step="0.1"><span>m</span></span>
@@ -389,6 +361,36 @@
               <input id="echoMeasuresBelowKeel" type="checkbox" checked>
               <span>Echo sounder measures depth beneath keel</span>
             </label>
+          </div>
+        </section>
+        <section class="inputPanel settingsPanel systemSettingsPanel" aria-label="System settings">
+          <h3>System settings</h3>
+          <div class="inputGrid settingsGrid">
+            <label title="Standard port name used for downloaded tide events.">Station name
+              <input id="tideDataStationName" type="text" value="Oban">
+            </label>
+            <label title="UKHO station ID. Oban is 0372.">UKHO station ID
+              <input id="tideDataStationId" type="text" value="0372" inputmode="numeric">
+            </label>
+            <label title="Time standard reported by UKHO. The app treats downloaded tide events as UT.">Time standard
+              <input id="tideDataTimeStandard" type="text" value="UT">
+            </label>
+            <label title="Choose whether tide-event times, Tide tab HW/LW inputs, and the tide graph are displayed as UT or this browser's local time. Stored UKHO data remains UT.">Display times
+              <select id="tideDataDisplayMode">
+                <option value="ut">UT</option>
+                <option value="local">Local time</option>
+              </select>
+            </label>
+            <label title="Optional note for the ADMIRALTY Developer Portal account used to obtain the key. Stored locally only.">UKHO account email
+              <input id="tideDataAccountEmail" type="email" autocomplete="email" placeholder="you@example.com">
+            </label>
+            <label title="ADMIRALTY UK Tidal API subscription key. Stored on this local server and not returned to the browser after saving.">UKHO API key
+              <input id="tideDataApiKey" type="password" autocomplete="off" placeholder="Leave blank to keep existing key">
+            </label>
+          </div>
+          <div class="secondaryActions">
+            <button id="saveTideDataSettings" type="button">Save system settings</button>
+            <button id="clearTideDataKey" class="dangerButton" type="button">Clear API key</button>
           </div>
         </section>
         <section class="tableWrap narrowTable settingsTable">

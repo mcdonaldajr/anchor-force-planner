@@ -1,4 +1,4 @@
-const webVersion = "0.5.2";
+const webVersion = "0.5.3";
 
 const defaults = {
   windSpeed: 40,

@@ -224,6 +224,10 @@ main {
   margin-top: 14px;
 }
 
+.systemSettingsPanel {
+  margin-top: 14px;
+}
+
 label {
   display: grid;
   gap: 4px;
