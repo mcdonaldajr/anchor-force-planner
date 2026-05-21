@@ -1,4 +1,4 @@
-const webVersion = "0.4.1";
+const webVersion = "0.5.0";
 
 const defaults = {
   windSpeed: 40,
@@ -54,7 +54,16 @@ let serverState = {
     }
   },
   secondaryPorts: [],
-  deletedSecondaryPortIds: []
+  deletedSecondaryPortIds: [],
+  tideData: {
+    stationName: "Oban",
+    stationId: "0372",
+    timeStandard: "UT",
+    ukhoAccountEmail: "",
+    ukhoApiKeySet: false,
+    events: [],
+    cache: null
+  }
 };
 let saveServerStateTimer = null;
 let editingSecondaryPortId = null;
@@ -167,7 +176,11 @@ function mergeServerState(state = {}) {
       }
     },
     secondaryPorts: Array.isArray(state.secondaryPorts) ? state.secondaryPorts : [],
-    deletedSecondaryPortIds: Array.isArray(state.deletedSecondaryPortIds) ? state.deletedSecondaryPortIds : []
+    deletedSecondaryPortIds: Array.isArray(state.deletedSecondaryPortIds) ? state.deletedSecondaryPortIds : [],
+    tideData: {
+      ...serverState.tideData,
+      ...(state.tideData || {})
+    }
   };
 }
 
@@ -212,17 +225,78 @@ function selectedSecondaryPort() {
 function springFactor(height, neapHeight, springHeight) {
   const range = springHeight - neapHeight;
   if (!Number.isFinite(range) || Math.abs(range) < 0.01) return 0;
-  return Math.max(0, Math.min(1, (height - neapHeight) / range));
+  return (height - neapHeight) / range;
 }
 
 function lowWaterSpringFactor(height, neapHeight, springHeight) {
   const range = neapHeight - springHeight;
   if (!Number.isFinite(range) || Math.abs(range) < 0.01) return 0;
-  return Math.max(0, Math.min(1, (neapHeight - height) / range));
+  return (neapHeight - height) / range;
 }
 
 function interpolateOffset(neapOffset, springOffset, factor) {
   return Number(neapOffset || 0) + (Number(springOffset || 0) - Number(neapOffset || 0)) * factor;
+}
+
+function offsetKey(hour) {
+  return `t${String(hour).padStart(4, "0")}`;
+}
+
+function legacyOffsets(port, type) {
+  if (type === "hw") {
+    const spring = Number(port.hwSpringOffset ?? port.hwTimeOffset ?? 0);
+    const neap = Number(port.hwNeapOffset ?? port.hwTimeOffset ?? 0);
+    return { t0000: spring, t0600: neap, t1200: spring, t1800: neap };
+  }
+  const spring = Number(port.lwSpringOffset ?? port.lwTimeOffset ?? 0);
+  const neap = Number(port.lwNeapOffset ?? port.lwTimeOffset ?? 0);
+  return { t0000: spring, t0600: neap, t1200: spring, t1800: neap };
+}
+
+function portOffsets(port, type) {
+  const source = type === "hw" ? port.hwOffsets : port.lwOffsets;
+  return { ...legacyOffsets(port, type), ...(source || {}) };
+}
+
+function portHeightDiffs(port) {
+  if (port.heightDiffs) return port.heightDiffs;
+  const reference = serverState.tide.obanReferenceLevels;
+  return {
+    mhws: Number(port.mhws || 0) - Number(reference.mhws || 0),
+    mhwn: Number(port.mhwn || 0) - Number(reference.mhwn || 0),
+    mlwn: Number(port.mlwn || 0) - Number(reference.mlwn || 0),
+    mlws: Number(port.mlws || 0) - Number(reference.mlws || 0)
+  };
+}
+
+function portStandardPort(port) {
+  return port.standardPort || "Oban";
+}
+
+function portReferenceLevels(port) {
+  return port.standardReferenceLevels || serverState.tide.obanReferenceLevels;
+}
+
+function interpolateTimeOffset(offsets, minutes) {
+  const points = [
+    { minute: 0, value: Number(offsets.t0000 || 0) },
+    { minute: 360, value: Number(offsets.t0600 || 0) },
+    { minute: 720, value: Number(offsets.t1200 || 0) },
+    { minute: 1080, value: Number(offsets.t1800 || 0) },
+    { minute: 1440, value: Number(offsets.t0000 || 0) }
+  ];
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  let before = points[0];
+  let after = points[points.length - 1];
+  for (let index = 0; index < points.length - 1; index += 1) {
+    if (points[index].minute <= normalized && normalized <= points[index + 1].minute) {
+      before = points[index];
+      after = points[index + 1];
+      break;
+    }
+  }
+  const span = Math.max(1, after.minute - before.minute);
+  return before.value + ((after.value - before.value) * (normalized - before.minute)) / span;
 }
 
 function secondaryTideValues(port = selectedSecondaryPort(), oban = serverState.tide.oban) {
@@ -230,31 +304,39 @@ function secondaryTideValues(port = selectedSecondaryPort(), oban = serverState.
   const reference = serverState.tide.obanReferenceLevels;
   const hwFactor = springFactor(Number(oban.hwHeight || 0), Number(reference.mhwn || 0), Number(reference.mhws || 0));
   const lwFactor = lowWaterSpringFactor(Number(oban.lwHeight || 0), Number(reference.mlwn || 0), Number(reference.mlws || 0));
-  const hwTimeOffset = port.hwTimeMode === "levels"
-    ? interpolateOffset(port.hwNeapOffset, port.hwSpringOffset, hwFactor)
-    : Number(port.hwTimeOffset || 0);
-  const lwTimeOffset = port.lwTimeMode === "levels"
-    ? interpolateOffset(port.lwNeapOffset, port.lwSpringOffset, lwFactor)
-    : Number(port.lwTimeOffset || 0);
-  if (port.heightMode === "levels") {
-    return {
-      hwTime: minutesToTime(timeToMinutes(oban.hwTime) + hwTimeOffset),
-      lwTime: minutesToTime(timeToMinutes(oban.lwTime) + lwTimeOffset),
-      hwHeight: round(Number(port.mhwn || 0) + hwFactor * (Number(port.mhws || 0) - Number(port.mhwn || 0)), 1),
-      lwHeight: round(Number(port.mlwn || 0) - lwFactor * (Number(port.mlwn || 0) - Number(port.mlws || 0)), 1)
-    };
-  }
+  const hwTimeOffset = interpolateTimeOffset(portOffsets(port, "hw"), timeToMinutes(oban.hwTime));
+  const lwTimeOffset = interpolateTimeOffset(portOffsets(port, "lw"), timeToMinutes(oban.lwTime));
+  const heightDiffs = portHeightDiffs(port);
+  const hwHeightDiff = interpolateOffset(heightDiffs.mhwn, heightDiffs.mhws, hwFactor);
+  const lwHeightDiff = interpolateOffset(heightDiffs.mlwn, heightDiffs.mlws, lwFactor);
   return {
     hwTime: minutesToTime(timeToMinutes(oban.hwTime) + hwTimeOffset),
     lwTime: minutesToTime(timeToMinutes(oban.lwTime) + lwTimeOffset),
-    hwHeight: round(Number(oban.hwHeight || 0) + Number(port.hwHeightOffset || 0), 1),
-    lwHeight: round(Number(oban.lwHeight || 0) + Number(port.lwHeightOffset || 0), 1)
+    hwHeight: round(Number(oban.hwHeight || 0) + hwHeightDiff, 1),
+    lwHeight: round(Number(oban.lwHeight || 0) + lwHeightDiff, 1)
   };
 }
 
 function activeTideValues() {
   if (serverState.tide.source === "secondary") return secondaryTideValues();
   return { ...serverState.tide.oban };
+}
+
+function springPercentages(tide = activeTideValues()) {
+  const reference = serverState.tide.obanReferenceLevels;
+  return {
+    hw: springFactor(Number(tide.hwHeight || 0), Number(reference.mhwn || 0), Number(reference.mhws || 0)) * 100,
+    lw: lowWaterSpringFactor(Number(tide.lwHeight || 0), Number(reference.mlwn || 0), Number(reference.mlws || 0)) * 100
+  };
+}
+
+function springPercentFromRange(range) {
+  const reference = serverState.tide.obanReferenceLevels;
+  const springRange = Number(reference.mhws || 0) - Number(reference.mlws || 0);
+  const neapRange = Number(reference.mhwn || 0) - Number(reference.mlwn || 0);
+  const spread = springRange - neapRange;
+  if (![range, springRange, neapRange, spread].every(Number.isFinite) || Math.abs(spread) < 0.01) return Number.NaN;
+  return ((range - neapRange) / spread) * 100;
 }
 
 function saveCurrentSettings() {
@@ -652,15 +734,38 @@ function clearIdealRodeRecommendation() {
 
 function applyServerStateToTideFields() {
   const oban = serverState.tide.oban;
+  const reference = serverState.tide.obanReferenceLevels;
   document.getElementById("hwTime").value = oban.hwTime || "15:00";
   document.getElementById("lwTime").value = oban.lwTime || "09:00";
   document.getElementById("hwHeight").value = oban.hwHeight ?? 4;
   document.getElementById("lwHeight").value = oban.lwHeight ?? 1;
+  document.getElementById("obanMhws").value = reference.mhws ?? 4.0;
+  document.getElementById("obanMhwn").value = reference.mhwn ?? 2.9;
+  document.getElementById("obanMlwn").value = reference.mlwn ?? 1.8;
+  document.getElementById("obanMlws").value = reference.mlws ?? 0.7;
+  renderObanReferenceLabels();
   document.getElementById("secondaryPortSelect").value = serverState.tide.selectedPortId || "";
   document.querySelectorAll(".tideSourceButton").forEach((button) => {
     button.classList.toggle("active", button.dataset.tideSource === serverState.tide.source);
   });
   renderSecondaryTidePreview();
+}
+
+function obanReferenceFromFields() {
+  return {
+    mhws: number("obanMhws"),
+    mhwn: number("obanMhwn"),
+    mlwn: number("obanMlwn"),
+    mlws: number("obanMlws")
+  };
+}
+
+function renderObanReferenceLabels() {
+  const reference = serverState.tide.obanReferenceLevels;
+  document.getElementById("obanMhwsLabel").textContent = fmt(Number(reference.mhws || 0), 1, "");
+  document.getElementById("obanMhwnLabel").textContent = fmt(Number(reference.mhwn || 0), 1, "");
+  document.getElementById("obanMlwnLabel").textContent = fmt(Number(reference.mlwn || 0), 1, "");
+  document.getElementById("obanMlwsLabel").textContent = fmt(Number(reference.mlws || 0), 1, "");
 }
 
 function renderSecondaryPortOptions() {
@@ -684,7 +789,6 @@ function renderSecondaryTidePreview() {
   document.getElementById("secondaryLwTime").textContent = showSecondary ? secondary.lwTime : "-";
   document.getElementById("secondaryHwHeight").textContent = showSecondary ? fmt(secondary.hwHeight, 1, " m") : "-";
   document.getElementById("secondaryLwHeight").textContent = showSecondary ? fmt(secondary.lwHeight, 1, " m") : "-";
-  document.getElementById("calculateSecondaryTide").disabled = !showSecondary;
   document.querySelector('[data-tide-source="secondary"]').disabled = !port;
   document.querySelectorAll(".tideSourceButton").forEach((button) => {
     button.classList.toggle("active", button.dataset.tideSource === serverState.tide.source);
@@ -701,18 +805,16 @@ function renderSecondaryPortsTable() {
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((port) => {
-      const hwTime = port.hwTimeMode === "levels"
-        ? `Sp ${fmtOffset(port.hwSpringOffset)} / Np ${fmtOffset(port.hwNeapOffset)}`
-        : fmtOffset(port.hwTimeOffset);
-      const lwTime = port.lwTimeMode === "levels"
-        ? `Sp ${fmtOffset(port.lwSpringOffset)} / Np ${fmtOffset(port.lwNeapOffset)}`
-        : fmtOffset(port.lwTimeOffset);
-      const heights = port.heightMode === "levels"
-        ? `MHWS ${fmt(Number(port.mhws || 0), 1, " m")} / MHWN ${fmt(Number(port.mhwn || 0), 1, " m")} / MLWN ${fmt(Number(port.mlwn || 0), 1, " m")} / MLWS ${fmt(Number(port.mlws || 0), 1, " m")}`
-        : `HW ${fmt(Number(port.hwHeightOffset || 0), 1, " m")} / LW ${fmt(Number(port.lwHeightOffset || 0), 1, " m")}`;
+      const hwOffsets = portOffsets(port, "hw");
+      const lwOffsets = portOffsets(port, "lw");
+      const heightDiffs = portHeightDiffs(port);
+      const hwTime = `0000 ${fmtOffset(hwOffsets.t0000)} / 0600 ${fmtOffset(hwOffsets.t0600)} / 1200 ${fmtOffset(hwOffsets.t1200)} / 1800 ${fmtOffset(hwOffsets.t1800)}`;
+      const lwTime = `0000 ${fmtOffset(lwOffsets.t0000)} / 0600 ${fmtOffset(lwOffsets.t0600)} / 1200 ${fmtOffset(lwOffsets.t1200)} / 1800 ${fmtOffset(lwOffsets.t1800)}`;
+      const reference = portReferenceLevels(port);
+      const heights = `MHWS ${fmt(Number(reference.mhws || 0), 1, "")} ${fmt(Number(heightDiffs.mhws || 0), 1, " m")} / MHWN ${fmt(Number(reference.mhwn || 0), 1, "")} ${fmt(Number(heightDiffs.mhwn || 0), 1, " m")} / MLWN ${fmt(Number(reference.mlwn || 0), 1, "")} ${fmt(Number(heightDiffs.mlwn || 0), 1, " m")} / MLWS ${fmt(Number(reference.mlws || 0), 1, "")} ${fmt(Number(heightDiffs.mlws || 0), 1, " m")}`;
       return `
       <tr>
-        <td>${escapeHtml(port.name)}</td>
+        <td>${escapeHtml(port.name)}<span class="tableSubtext">${escapeHtml(portStandardPort(port))}</span></td>
         <td>${escapeHtml(hwTime)}</td>
         <td>${escapeHtml(lwTime)}</td>
         <td>${escapeHtml(heights)}</td>
@@ -729,21 +831,14 @@ function renderSecondaryPortsTable() {
 function clearSecondaryPortForm() {
   editingSecondaryPortId = null;
   document.getElementById("secondaryPortName").value = "";
-  document.getElementById("secondaryHwTimeMode").value = "fixed";
-  document.getElementById("secondaryHwOffset").value = "0";
-  document.getElementById("secondaryHwSpringOffset").value = "0";
-  document.getElementById("secondaryHwNeapOffset").value = "0";
-  document.getElementById("secondaryLwTimeMode").value = "fixed";
-  document.getElementById("secondaryLwOffset").value = "0";
-  document.getElementById("secondaryLwSpringOffset").value = "0";
-  document.getElementById("secondaryLwNeapOffset").value = "0";
-  document.getElementById("secondaryHeightMode").value = "levels";
-  document.getElementById("secondaryMhws").value = "0";
-  document.getElementById("secondaryMhwn").value = "0";
-  document.getElementById("secondaryMlwn").value = "0";
-  document.getElementById("secondaryMlws").value = "0";
-  document.getElementById("secondaryHwHeightOffset").value = "0";
-  document.getElementById("secondaryLwHeightOffset").value = "0";
+  ["0000", "0600", "1200", "1800"].forEach((time) => {
+    document.getElementById(`secondaryHw${time}`).value = "0";
+    document.getElementById(`secondaryLw${time}`).value = "0";
+  });
+  document.getElementById("secondaryDiffMhws").value = "0";
+  document.getElementById("secondaryDiffMhwn").value = "0";
+  document.getElementById("secondaryDiffMlwn").value = "0";
+  document.getElementById("secondaryDiffMlws").value = "0";
   document.getElementById("secondaryPortNotes").value = "";
   document.getElementById("saveSecondaryPort").textContent = "Add secondary port";
 }
@@ -754,8 +849,111 @@ function renderSecondaryPortManager() {
   renderSecondaryPortsTable();
 }
 
+function sortedTideEvents() {
+  return Array.isArray(serverState.tideData.events)
+    ? serverState.tideData.events
+      .filter((event) => event.EventType === "HighWater" || event.EventType === "LowWater")
+      .slice()
+      .sort((a, b) => Date.parse(a.DateTime) - Date.parse(b.DateTime))
+    : [];
+}
+
+function eventLabel(event) {
+  return event.EventType === "HighWater" ? "HW" : "LW";
+}
+
+function eventDate(event) {
+  return String(event.DateTime || "").slice(0, 10);
+}
+
+function eventTime(event) {
+  return String(event.DateTime || "").slice(11, 16);
+}
+
+function pairedTideRange(events, index) {
+  const event = events[index];
+  const previous = events.slice(0, index).reverse().find((candidate) => candidate.EventType !== event.EventType);
+  const next = events.slice(index + 1).find((candidate) => candidate.EventType !== event.EventType);
+  const paired = previous || next;
+  return paired ? Math.abs(Number(event.Height) - Number(paired.Height)) : Number.NaN;
+}
+
+function tideEventsForDate(date) {
+  return sortedTideEvents().filter((event) => eventDate(event) === date);
+}
+
+function applyTideDataDate(date) {
+  const dayEvents = tideEventsForDate(date);
+  const hw = dayEvents.find((event) => event.EventType === "HighWater");
+  const lw = dayEvents.find((event) => event.EventType === "LowWater");
+  if (!hw || !lw) {
+    document.getElementById("tideDataStatusLabel").textContent = `No complete HW/LW pair for ${date}`;
+    return;
+  }
+  serverState.tide.oban = {
+    hwTime: eventTime(hw),
+    lwTime: eventTime(lw),
+    hwHeight: round(Number(hw.Height), 1),
+    lwHeight: round(Number(lw.Height), 1)
+  };
+  applyServerStateToTideFields();
+  saveServerStateSoon();
+  idealRode = null;
+  clearIdealRodeRecommendation();
+  renderTideDataManager();
+  renderAll();
+}
+
+function applyTideDataFields() {
+  const tideData = serverState.tideData;
+  document.getElementById("tideDataStationName").value = tideData.stationName || "Oban";
+  document.getElementById("tideDataStationId").value = tideData.stationId || "0372";
+  document.getElementById("tideDataTimeStandard").value = tideData.timeStandard || "UT";
+  document.getElementById("tideDataAccountEmail").value = tideData.ukhoAccountEmail || "";
+}
+
+function renderTideDataManager() {
+  const tideData = serverState.tideData;
+  const events = sortedTideEvents();
+  if (document.activeElement?.id !== "tideDataStationName") document.getElementById("tideDataStationName").value = tideData.stationName || "Oban";
+  if (document.activeElement?.id !== "tideDataStationId") document.getElementById("tideDataStationId").value = tideData.stationId || "0372";
+  if (document.activeElement?.id !== "tideDataTimeStandard") document.getElementById("tideDataTimeStandard").value = tideData.timeStandard || "UT";
+  if (document.activeElement?.id !== "tideDataAccountEmail") document.getElementById("tideDataAccountEmail").value = tideData.ukhoAccountEmail || "";
+  document.getElementById("tideDataStationLabel").textContent = `${tideData.stationName || "Oban"} ${tideData.stationId || "0372"} (${tideData.timeStandard || "UT"})`;
+  document.getElementById("tideDataKeyLabel").textContent = tideData.ukhoApiKeySet ? "Set" : "Not set";
+  document.getElementById("tideDataFetchedLabel").textContent = fmtDateTime(tideData.cache?.fetchedAt);
+  document.getElementById("tideDataCountLabel").textContent = String(events.length);
+  document.getElementById("tideDataStatusLabel").textContent = tideData.cache?.stale ? "Using stale cache" : tideData.cache?.hit ? "Using cache" : tideData.cache?.fetchedAt ? "Fresh fetch" : "No tide data loaded";
+  const tbody = document.querySelector("#tideDataTable tbody");
+  if (!events.length) {
+    tbody.innerHTML = `<tr><td colspan="6">No fetched tide events yet.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = events.map((event, index) => {
+    const range = pairedTideRange(events, index);
+    const spring = springPercentFromRange(range);
+    const date = eventDate(event);
+    return `
+      <tr>
+        <td>${escapeHtml(date)}</td>
+        <td>${eventLabel(event)}</td>
+        <td>${eventTime(event)} ${escapeHtml(tideData.timeStandard || "UT")}</td>
+        <td>${fmt(Number(event.Height), 2, " m")}</td>
+        <td>${Number.isFinite(spring) ? fmt(spring, 0, "%") : "-"}</td>
+        <td><button type="button" data-use-tide-date="${escapeHtml(date)}">Use this day</button></td>
+      </tr>
+    `;
+  }).join("");
+}
+
 function persistTideStateFromFields() {
   serverState.tide.oban = obanTideFromFields();
+  saveServerStateSoon();
+}
+
+function persistObanReferenceFromFields() {
+  serverState.tide.obanReferenceLevels = obanReferenceFromFields();
+  renderObanReferenceLabels();
   saveServerStateSoon();
 }
 
@@ -770,6 +968,39 @@ function interpolateTwelfths(progress) {
   const segmentProgress = (clamped - segmentStart) * 6;
   const twelfths = [0, 1, 3, 6, 9, 11, 12];
   return (twelfths[segment] + (twelfths[segment + 1] - twelfths[segment]) * segmentProgress) / 12;
+}
+
+function tideHeightBetween(before, after, minute) {
+  const duration = Math.max(1, after.minute - before.minute);
+  const progress = (minute - before.minute) / duration;
+  const fraction = interpolateTwelfths(progress);
+  if (before.type === "LW" && after.type === "HW") return before.height + (after.height - before.height) * fraction;
+  return before.height - (before.height - after.height) * fraction;
+}
+
+function tideEventsForRange(tide, startMinute, endMinute) {
+  const halfCycleMinutes = 12 * 60 + 25;
+  const baseEvents = [
+    { type: "HW", minute: timeToMinutes(tide.hwTime), height: Number(tide.hwHeight || 0) },
+    { type: "LW", minute: timeToMinutes(tide.lwTime), height: Number(tide.lwHeight || 0) }
+  ];
+  const events = [];
+  for (const shift of [-3, -2, -1, 0, 1, 2, 3]) {
+    for (const event of baseEvents) events.push({ ...event, minute: event.minute + shift * halfCycleMinutes });
+  }
+  return events
+    .filter((event) => event.minute >= startMinute - halfCycleMinutes && event.minute <= endMinute + halfCycleMinutes)
+    .sort((a, b) => a.minute - b.minute);
+}
+
+function tideAtMinute(tide, minute) {
+  const events = tideEventsForRange(tide, minute - 800, minute + 800);
+  for (let index = 0; index < events.length - 1; index += 1) {
+    if (events[index].minute <= minute && minute <= events[index + 1].minute && events[index].type !== events[index + 1].type) {
+      return tideHeightBetween(events[index], events[index + 1], minute);
+    }
+  }
+  return Number(tide.lwHeight || 0);
 }
 
 function currentTide() {
@@ -797,13 +1028,8 @@ function currentTide() {
       break;
     }
   }
-  const duration = Math.max(1, after.minute - before.minute);
-  const progress = (nowMinutes - before.minute) / duration;
-  const fraction = interpolateTwelfths(progress);
   const rising = before.type === "LW" && after.type === "HW";
-  const height = rising
-    ? before.height + (after.height - before.height) * fraction
-    : before.height - (before.height - after.height) * fraction;
+  const height = tideHeightBetween(before, after, nowMinutes);
   const chartedDepth = chartedDepthFor({ ...input, tideHeight: height }, height);
   const currentDepth = chartedDepth + height;
   const lowWaterDepth = chartedDepth + input.lwHeight;
@@ -825,12 +1051,14 @@ function currentTide() {
 
 function updateTideSummary() {
   const tide = currentTide();
+  const spring = springPercentages();
   const tideSourceLabel = serverState.tide.source === "secondary" && selectedSecondaryPort()
     ? selectedSecondaryPort().name
     : "Oban";
   document.getElementById("tideHeight").value = round(tide.height, 1);
   document.getElementById("currentTimeLabel").textContent = formatClock(tide.now);
   document.getElementById("currentRiseLabel").textContent = `${fmt(tide.height, 1, " m")} ${tide.phase.toLowerCase()}`;
+  document.getElementById("springPercentLabel").textContent = `HW ${fmt(spring.hw, 0, "%")} / LW ${fmt(spring.lw, 0, "%")}`;
   document.getElementById("currentDepthLabel").textContent = fmt(tide.keelClearance, 1, " m");
   document.getElementById("lowWaterClearanceLabel").textContent = fmt(tide.lowWaterClearance, 1, " m");
 
@@ -1127,9 +1355,82 @@ function renderForceChart() {
   });
 }
 
+function renderTideCurve() {
+  const target = document.getElementById("tideCurve");
+  if (!target) return;
+  target.innerHTML = "";
+  const tide = activeTideValues();
+  const tideSourceLabel = serverState.tide.source === "secondary" && selectedSecondaryPort()
+    ? selectedSecondaryPort().name
+    : "Oban";
+  const now = new Date();
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const nowMinutes = (now - todayStart) / 60000;
+  const width = 680;
+  const height = 170;
+  const left = 76;
+  const top = 42;
+  const bottom = top + height;
+  const samples = [];
+  for (let minute = 0; minute <= 1440; minute += 15) {
+    samples.push({ minute, height: tideAtMinute(tide, minute) });
+  }
+  const eventHeights = tideEventsForRange(tide, 0, 1440)
+    .filter((event) => event.minute >= 0 && event.minute <= 1440)
+    .map((event) => event.height);
+  const heights = [...samples.map((sample) => sample.height), ...eventHeights];
+  const minHeight = Math.min(...heights);
+  const maxHeight = Math.max(...heights);
+  const pad = Math.max(0.2, (maxHeight - minHeight) * 0.12);
+  const yMin = minHeight - pad;
+  const yMax = maxHeight + pad;
+  const xFor = (minute) => left + (minute / 1440) * width;
+  const yFor = (value) => bottom - ((value - yMin) / Math.max(0.1, yMax - yMin)) * height;
+  const path = samples.map((sample, index) => `${index === 0 ? "M" : "L"}${xFor(sample.minute)} ${yFor(sample.height)}`).join(" ");
+  target.append(
+    svg("rect", { x: 0, y: 0, width: 820, height: 280, fill: "#ffffff" }),
+    svg("text", { x: left, y: 24, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`24 hour tide curve: ${tideSourceLabel}`)]),
+    svg("line", { x1: left, y1: top, x2: left, y2: bottom, stroke: "#9aa8b3" }),
+    svg("line", { x1: left, y1: bottom, x2: left + width, y2: bottom, stroke: "#9aa8b3" }),
+    svg("path", { d: path, fill: "none", stroke: "#1f6f8b", "stroke-width": 4, "stroke-linecap": "round", "stroke-linejoin": "round" })
+  );
+  [0, 360, 720, 1080, 1440].forEach((minute) => {
+    const x = xFor(minute);
+    target.append(
+      svg("line", { x1: x, y1: top, x2: x, y2: bottom, stroke: "#e2e8ee", "stroke-width": 1 }),
+      svg("text", { x: x - 14, y: bottom + 22, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(minutesToTime(minute))])
+    );
+  });
+  [minHeight, maxHeight].forEach((value) => {
+    const y = yFor(value);
+    target.append(
+      svg("line", { x1: left - 5, y1: y, x2: left + width, y2: y, stroke: "#eef2f5", "stroke-width": 1 }),
+      svg("text", { x: 18, y: y + 4, fill: "#5f6c76", "font-size": 12 }, [document.createTextNode(fmt(value, 1, " m"))])
+    );
+  });
+  tideEventsForRange(tide, 0, 1440)
+    .filter((event) => event.minute >= 0 && event.minute <= 1440)
+    .forEach((event) => {
+      const x = xFor(event.minute);
+      const y = yFor(event.height);
+      target.append(
+        svg("circle", { cx: x, cy: y, r: 5, fill: event.type === "HW" ? "#1f6f8b" : "#6a8a3a" }),
+        svg("text", { x: x + 7, y: y - 8, fill: "#17212b", "font-size": 12 }, [document.createTextNode(`${event.type} ${minutesToTime(event.minute)} ${fmt(event.height, 1, " m")}`)])
+      );
+    });
+  const nowX = xFor(Math.max(0, Math.min(1440, nowMinutes)));
+  target.append(
+    svg("line", { x1: nowX, y1: top, x2: nowX, y2: bottom, stroke: "#b44444", "stroke-width": 2, "stroke-dasharray": "5 5" }),
+    svg("text", { x: Math.min(nowX + 6, left + width - 42), y: top + 14, fill: "#b44444", "font-size": 12, "font-weight": 700 }, [document.createTextNode("now")])
+  );
+}
+
 function renderAll() {
   renderSecondaryTidePreview();
+  renderTideDataManager();
   updateTideSummary();
+  renderTideCurve();
   updateDepthComparison();
   const result = calculate();
   updateSummary(result);
@@ -1202,6 +1503,16 @@ checkboxIds.forEach((id) => {
   });
 });
 
+["obanMhws", "obanMhwn", "obanMlwn", "obanMlws"].forEach((id) => {
+  document.getElementById(id).addEventListener("input", () => {
+    persistObanReferenceFromFields();
+    idealRode = null;
+    clearIdealRodeRecommendation();
+    renderSecondaryPortManager();
+    renderAll();
+  });
+});
+
 document.getElementById("calculateIdealRode").addEventListener("click", () => {
   idealRode = calculateIdealRode();
   showIdealRodeRecommendation(idealRode);
@@ -1247,33 +1558,30 @@ document.getElementById("secondaryPortSelect").addEventListener("change", (event
   renderAll();
 });
 
-document.getElementById("calculateSecondaryTide").addEventListener("click", () => {
-  persistTideStateFromFields();
-  renderSecondaryTidePreview();
-  if (serverState.tide.source === "secondary") renderAll();
-});
-
 document.getElementById("saveSecondaryPort").addEventListener("click", () => {
   const name = document.getElementById("secondaryPortName").value.trim();
   if (!name) return;
   const port = {
     id: editingSecondaryPortId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name,
-    hwTimeMode: document.getElementById("secondaryHwTimeMode").value,
-    hwTimeOffset: Number(document.getElementById("secondaryHwOffset").value) || 0,
-    hwSpringOffset: Number(document.getElementById("secondaryHwSpringOffset").value) || 0,
-    hwNeapOffset: Number(document.getElementById("secondaryHwNeapOffset").value) || 0,
-    lwTimeMode: document.getElementById("secondaryLwTimeMode").value,
-    lwTimeOffset: Number(document.getElementById("secondaryLwOffset").value) || 0,
-    lwSpringOffset: Number(document.getElementById("secondaryLwSpringOffset").value) || 0,
-    lwNeapOffset: Number(document.getElementById("secondaryLwNeapOffset").value) || 0,
-    heightMode: document.getElementById("secondaryHeightMode").value,
-    mhws: Number(document.getElementById("secondaryMhws").value) || 0,
-    mhwn: Number(document.getElementById("secondaryMhwn").value) || 0,
-    mlwn: Number(document.getElementById("secondaryMlwn").value) || 0,
-    mlws: Number(document.getElementById("secondaryMlws").value) || 0,
-    hwHeightOffset: Number(document.getElementById("secondaryHwHeightOffset").value) || 0,
-    lwHeightOffset: Number(document.getElementById("secondaryLwHeightOffset").value) || 0,
+    hwOffsets: {
+      t0000: Number(document.getElementById("secondaryHw0000").value) || 0,
+      t0600: Number(document.getElementById("secondaryHw0600").value) || 0,
+      t1200: Number(document.getElementById("secondaryHw1200").value) || 0,
+      t1800: Number(document.getElementById("secondaryHw1800").value) || 0
+    },
+    lwOffsets: {
+      t0000: Number(document.getElementById("secondaryLw0000").value) || 0,
+      t0600: Number(document.getElementById("secondaryLw0600").value) || 0,
+      t1200: Number(document.getElementById("secondaryLw1200").value) || 0,
+      t1800: Number(document.getElementById("secondaryLw1800").value) || 0
+    },
+    heightDiffs: {
+      mhws: Number(document.getElementById("secondaryDiffMhws").value) || 0,
+      mhwn: Number(document.getElementById("secondaryDiffMhwn").value) || 0,
+      mlwn: Number(document.getElementById("secondaryDiffMlwn").value) || 0,
+      mlws: Number(document.getElementById("secondaryDiffMlws").value) || 0
+    },
     notes: document.getElementById("secondaryPortNotes").value.trim()
   };
   const existingIndex = serverState.secondaryPorts.findIndex((item) => item.id === port.id);
@@ -1291,6 +1599,75 @@ document.getElementById("clearSecondaryPort").addEventListener("click", () => {
   clearSecondaryPortForm();
 });
 
+document.getElementById("saveTideDataSettings").addEventListener("click", async () => {
+  try {
+    const response = await fetch("/api/tide-data/settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        stationName: document.getElementById("tideDataStationName").value.trim(),
+        stationId: document.getElementById("tideDataStationId").value.trim(),
+        timeStandard: document.getElementById("tideDataTimeStandard").value.trim(),
+        ukhoAccountEmail: document.getElementById("tideDataAccountEmail").value.trim(),
+        ukhoApiKey: document.getElementById("tideDataApiKey").value.trim()
+      })
+    });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `server returned ${response.status}`);
+    serverState.tideData = await response.json();
+    document.getElementById("tideDataApiKey").value = "";
+    renderTideDataManager();
+  } catch (error) {
+    document.getElementById("tideDataStatusLabel").textContent = `Save failed: ${error.message}`;
+  }
+});
+
+document.getElementById("clearTideDataKey").addEventListener("click", async () => {
+  try {
+    const response = await fetch("/api/tide-data/settings", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        stationName: document.getElementById("tideDataStationName").value.trim(),
+        stationId: document.getElementById("tideDataStationId").value.trim(),
+        timeStandard: document.getElementById("tideDataTimeStandard").value.trim(),
+        ukhoAccountEmail: document.getElementById("tideDataAccountEmail").value.trim(),
+        clearUkhoApiKey: true
+      })
+    });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `server returned ${response.status}`);
+    serverState.tideData = await response.json();
+    document.getElementById("tideDataApiKey").value = "";
+    renderTideDataManager();
+  } catch (error) {
+    document.getElementById("tideDataStatusLabel").textContent = `Clear failed: ${error.message}`;
+  }
+});
+
+document.getElementById("refreshTideData").addEventListener("click", async () => {
+  try {
+    document.getElementById("tideDataStatusLabel").textContent = "Fetching...";
+    const response = await fetch("/api/tide-data/refresh", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        stationName: document.getElementById("tideDataStationName").value.trim(),
+        stationId: document.getElementById("tideDataStationId").value.trim(),
+        timeStandard: document.getElementById("tideDataTimeStandard").value.trim()
+      })
+    });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `provider returned ${response.status}`);
+    serverState.tideData = await response.json();
+    renderTideDataManager();
+  } catch (error) {
+    document.getElementById("tideDataStatusLabel").textContent = `Fetch failed: ${error.message}`;
+  }
+});
+
+document.getElementById("tideDataTable").addEventListener("click", (event) => {
+  const date = event.target.dataset.useTideDate;
+  if (date) applyTideDataDate(date);
+});
+
 document.getElementById("secondaryPortsTable").addEventListener("click", (event) => {
   const editId = event.target.dataset.editSecondary;
   const deleteId = event.target.dataset.deleteSecondary;
@@ -1299,21 +1676,21 @@ document.getElementById("secondaryPortsTable").addEventListener("click", (event)
     if (!port) return;
     editingSecondaryPortId = port.id;
     document.getElementById("secondaryPortName").value = port.name;
-    document.getElementById("secondaryHwTimeMode").value = port.hwTimeMode || "fixed";
-    document.getElementById("secondaryHwOffset").value = port.hwTimeOffset || 0;
-    document.getElementById("secondaryHwSpringOffset").value = port.hwSpringOffset || 0;
-    document.getElementById("secondaryHwNeapOffset").value = port.hwNeapOffset || 0;
-    document.getElementById("secondaryLwTimeMode").value = port.lwTimeMode || "fixed";
-    document.getElementById("secondaryLwOffset").value = port.lwTimeOffset || 0;
-    document.getElementById("secondaryLwSpringOffset").value = port.lwSpringOffset || 0;
-    document.getElementById("secondaryLwNeapOffset").value = port.lwNeapOffset || 0;
-    document.getElementById("secondaryHeightMode").value = port.heightMode || "fixed";
-    document.getElementById("secondaryMhws").value = port.mhws || 0;
-    document.getElementById("secondaryMhwn").value = port.mhwn || 0;
-    document.getElementById("secondaryMlwn").value = port.mlwn || 0;
-    document.getElementById("secondaryMlws").value = port.mlws || 0;
-    document.getElementById("secondaryHwHeightOffset").value = port.hwHeightOffset || 0;
-    document.getElementById("secondaryLwHeightOffset").value = port.lwHeightOffset || 0;
+    const hwOffsets = portOffsets(port, "hw");
+    const lwOffsets = portOffsets(port, "lw");
+    document.getElementById("secondaryHw0000").value = hwOffsets.t0000 || 0;
+    document.getElementById("secondaryHw0600").value = hwOffsets.t0600 || 0;
+    document.getElementById("secondaryHw1200").value = hwOffsets.t1200 || 0;
+    document.getElementById("secondaryHw1800").value = hwOffsets.t1800 || 0;
+    document.getElementById("secondaryLw0000").value = lwOffsets.t0000 || 0;
+    document.getElementById("secondaryLw0600").value = lwOffsets.t0600 || 0;
+    document.getElementById("secondaryLw1200").value = lwOffsets.t1200 || 0;
+    document.getElementById("secondaryLw1800").value = lwOffsets.t1800 || 0;
+    const heightDiffs = portHeightDiffs(port);
+    document.getElementById("secondaryDiffMhws").value = heightDiffs.mhws || 0;
+    document.getElementById("secondaryDiffMhwn").value = heightDiffs.mhwn || 0;
+    document.getElementById("secondaryDiffMlwn").value = heightDiffs.mlwn || 0;
+    document.getElementById("secondaryDiffMlws").value = heightDiffs.mlws || 0;
     document.getElementById("secondaryPortNotes").value = port.notes || "";
     document.getElementById("saveSecondaryPort").textContent = "Update secondary port";
   }
@@ -1343,7 +1720,9 @@ async function init() {
   applySettings(savedSettings() || {});
   await loadServerState();
   applyServerStateToTideFields();
+  applyTideDataFields();
   renderSecondaryPortManager();
+  renderTideDataManager();
   renderAll();
   renderAbout();
   setInterval(renderAll, 60 * 1000);
