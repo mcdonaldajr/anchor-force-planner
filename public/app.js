@@ -1,4 +1,4 @@
-const webVersion = "0.5.11";
+const webVersion = "0.5.12";
 const halfCycleMinutes = 12 * 60 + 25;
 
 const defaults = {
@@ -26,7 +26,7 @@ const defaults = {
   anchorWeight: 15,
   anchorUhc: 420,
   windageFactor: 0.34,
-  underwaterDragFactor: 0.35
+  underwaterDragFactor: 0.40
 };
 
 const timeDefaults = {
@@ -1611,31 +1611,31 @@ function renderDiagram(result, view = selectedPlannerTideView()) {
     svg("line", { x1: 0, y1: lowWaterY, x2: width, y2: lowWaterY, stroke: "#5aa5c9", "stroke-width": 2, "stroke-dasharray": "7 6" }),
     ...(view.type !== "HW" ? [
       svg("line", { x1: hwBowX, y1: seabedY + 16, x2: bowX, y2: seabedY + 16, stroke: "#7a6a45", "stroke-width": 2, "stroke-dasharray": "5 5" }),
-      svg("text", { x: Math.min(hwBowX, bowX) + 8, y: seabedY + 44, fill: "#17212b", "font-size": 13 }, [document.createTextNode(`${fmt(Math.abs(moveFromHw), 1, " m")} from HW set position`)])
+      svg("text", { x: Math.min(hwBowX, bowX) + 8, y: seabedY + 44, fill: "#17212b", "font-size": 15 }, [document.createTextNode(`${fmt(Math.abs(moveFromHw), 1, " m")} from HW set position`)])
     ] : []),
     svg("path", { d: `M${boatSternX} ${sternDeckY} L${bowX - 10} ${bowDeckY} L${bowX} ${bowPointY} L${bowX - 14} ${waterY + draftPx * 0.08} L${boatSternX + 22} ${hullBottomY} Z`, fill: "#ffffff", stroke: "#17212b", "stroke-width": 2 }),
     svg("path", { d: `M${keelCenterX - keelHalfWidth} ${keelTopY} L${keelCenterX + keelHalfWidth} ${keelTopY} L${keelCenterX + keelHalfWidth * 0.55} ${keelBottomY} L${keelCenterX - keelHalfWidth * 0.55} ${keelBottomY} Z`, fill: keelHitsBottom ? "#d76c6c" : "#6f7f8a", stroke: "#17212b", "stroke-width": 2, opacity: 0.95 }),
     svg("line", { x1: keelClearanceLineX, y1: keelBottomY, x2: keelClearanceLineX, y2: seabedY, stroke: keelClearanceColor, "stroke-width": 2 }),
     svg("line", { x1: keelClearanceLineX - 6, y1: keelBottomY, x2: keelClearanceLineX + 6, y2: keelBottomY, stroke: keelClearanceColor, "stroke-width": 2 }),
     svg("line", { x1: keelClearanceLineX - 6, y1: seabedY, x2: keelClearanceLineX + 6, y2: seabedY, stroke: keelClearanceColor, "stroke-width": 2 }),
-    svg("text", { x: keelClearanceLineX + 10, y: Math.min(seabedY - 8, Math.max(waterY + 16, keelClearanceMidY + 4)), fill: keelClearanceColor, "font-size": 13, "font-weight": 700 }, [document.createTextNode(`${modeLabel} ${fmt(result.keelClearance, 1, " m")}`)]),
+    svg("text", { x: keelClearanceLineX + 10, y: Math.min(seabedY - 8, Math.max(waterY + 16, keelClearanceMidY + 4)), fill: keelClearanceColor, "font-size": 15, "font-weight": 700 }, [document.createTextNode(`${modeLabel} ${fmt(result.keelClearance, 1, " m")}`)]),
     svg("circle", { cx: bowX, cy: bowPointY, r: 5, fill: "#17212b" }),
     ...(result.chainLifted > 0.05 ? [svg("path", { d: chainPath, fill: "none", stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "3 7" })] : []),
     ...(hasRopeLifted ? [svg("path", { d: ropePath, fill: "none", stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-linejoin": "round", "stroke-dasharray": "10 7" })] : []),
     ...(result.ropeOnSeabed > 0.05 ? [svg("line", { x1: liftedStartX, y1: seabedY + 8, x2: chainSeabedEndX, y2: seabedY + 8, stroke: "#c77a16", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "10 7", opacity: 0.9 })] : []),
     ...(result.chainOnSeabed > 0.05 ? [svg("line", { x1: chainSeabedEndX, y1: seabedY + 4, x2: anchorX, y2: seabedY + 4, stroke: "#2f3b44", "stroke-width": 7, "stroke-linecap": "round", "stroke-dasharray": "3 7", opacity: 0.9 })] : []),
     svg("path", { d: `M${anchorX - 20} ${anchorY - 18} L${anchorX} ${anchorY} L${anchorX + 24} ${anchorY - 12} M${anchorX} ${anchorY} L${anchorX + 2} ${anchorY - 34}`, stroke: "#17212b", "stroke-width": 5, fill: "none", "stroke-linecap": "round" }),
-    svg("text", { x: labelX, y: rodeMidY, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`Rode ${fmt(result.rodeLength, 1, " m")} / scope ${fmt(result.scopeRatio, 1, ":1")}`)]),
-    svg("text", { x: labelX, y: rodeMidY + 18, fill: "#17212b", "font-size": 13 }, [document.createTextNode(catenaryLabel)]),
+    svg("text", { x: labelX, y: rodeMidY, fill: "#17212b", "font-size": 16, "font-weight": 700 }, [document.createTextNode(`Rode ${fmt(result.rodeLength, 1, " m")} / scope ${fmt(result.scopeRatio, 1, ":1")}`)]),
+    svg("text", { x: labelX, y: rodeMidY + 18, fill: "#17212b", "font-size": 15 }, [document.createTextNode(catenaryLabel)]),
     svg("line", { x1: 588, y1: 34, x2: 636, y2: 34, stroke: "#2f3b44", "stroke-width": 6, "stroke-linecap": "round", "stroke-dasharray": "3 7" }),
-    svg("text", { x: 644, y: 38, fill: "#17212b", "font-size": 13 }, [document.createTextNode(`chain ${fmt(Math.min(input.chainLength, result.rodeLength), 1, " m")}`)]),
+    svg("text", { x: 644, y: 38, fill: "#17212b", "font-size": 15 }, [document.createTextNode(`chain ${fmt(Math.min(input.chainLength, result.rodeLength), 1, " m")}`)]),
     svg("line", { x1: 588, y1: 54, x2: 636, y2: 54, stroke: "#c77a16", "stroke-width": 5, "stroke-linecap": "round", "stroke-dasharray": "10 7" }),
-    svg("text", { x: 644, y: 58, fill: "#17212b", "font-size": 13 }, [document.createTextNode(`rope ${fmt(ropeDeployed, 1, " m")}`)]),
-    svg("text", { x: Math.max(bowX + 10, lowWaterTouchX + 10), y: seabedY + 28, fill: "#17212b", "font-size": 14 }, [document.createTextNode(`${fmt(result.chainOnSeabed, 1, " m")} chain on seabed at ${modeLabel}`)]),
+    svg("text", { x: 644, y: 58, fill: "#17212b", "font-size": 15 }, [document.createTextNode(`rope ${fmt(ropeDeployed, 1, " m")}`)]),
+    svg("text", { x: Math.max(bowX + 10, lowWaterTouchX + 10), y: seabedY + 28, fill: "#17212b", "font-size": 16 }, [document.createTextNode(`${fmt(result.chainOnSeabed, 1, " m")} chain on seabed at ${modeLabel}`)]),
     svg("line", { x1: distanceStartX, y1: distanceY, x2: anchorX, y2: distanceY, stroke: "#7a6a45", "stroke-width": 2 }),
     svg("line", { x1: distanceStartX, y1: distanceY - 5, x2: distanceStartX, y2: distanceY + 5, stroke: "#7a6a45", "stroke-width": 2 }),
     svg("line", { x1: anchorX, y1: distanceY - 5, x2: anchorX, y2: distanceY + 5, stroke: "#7a6a45", "stroke-width": 2 }),
-    svg("text", { x: Math.max(18, Math.min(anchorX - 190, distanceStartX + 12)), y: distanceY - 8, fill: "#17212b", "font-size": 14 }, [document.createTextNode(`anchor to stern ${fmt(sternDistance, 1, " m")}`)])
+    svg("text", { x: Math.max(18, Math.min(anchorX - 190, distanceStartX + 12)), y: distanceY - 8, fill: "#17212b", "font-size": 16 }, [document.createTextNode(`anchor to stern ${fmt(sternDistance, 1, " m")}`)])
   );
 }
 
@@ -1683,15 +1683,15 @@ function renderForceChart() {
     svg("line", { x1: left, y1: 36, x2: left, y2: bottom, stroke: "#9aa8b3" }),
     svg("line", { x1: left, y1: bottom, x2: left + width + 18, y2: bottom, stroke: "#9aa8b3" }),
     svg("path", { d: path, fill: "none", stroke: "#1f6f8b", "stroke-width": 4, "stroke-linecap": "round", "stroke-linejoin": "round" }),
-    svg("text", { x: left, y: 22, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`Load curve for ${fmt(input.loa, 1, " m")} LOA`)])
+    svg("text", { x: left, y: 22, fill: "#17212b", "font-size": 16, "font-weight": 700 }, [document.createTextNode(`Load curve for ${fmt(input.loa, 1, " m")} LOA`)])
   );
   points.forEach((point) => {
     const x = left + ((point.speed - 20) / 50) * width;
     const y = bottom - (point.force / maxForce) * height;
     target.append(
       svg("circle", { cx: x, cy: y, r: 5, fill: "#1f6f8b" }),
-      svg("text", { x: x - 18, y: bottom + 24, fill: "#17212b", "font-size": 13 }, [document.createTextNode(point.speed)]),
-      svg("text", { x: x - 20, y: y - 10, fill: "#17212b", "font-size": 13 }, [document.createTextNode(fmt(point.force, 0))])
+      svg("text", { x: x - 18, y: bottom + 24, fill: "#17212b", "font-size": 15 }, [document.createTextNode(point.speed)]),
+      svg("text", { x: x - 20, y: y - 10, fill: "#17212b", "font-size": 15 }, [document.createTextNode(fmt(point.force, 0))])
     );
   });
 }
@@ -1734,7 +1734,7 @@ function renderTideCurve() {
   const path = samples.map((sample, index) => `${index === 0 ? "M" : "L"}${xFor(sample.minute)} ${yFor(sample.height)}`).join(" ");
   target.append(
     svg("rect", { x: 0, y: 0, width: 820, height: 280, fill: "#ffffff" }),
-    svg("text", { x: left, y: 24, fill: "#17212b", "font-size": 14, "font-weight": 700 }, [document.createTextNode(`24 hour tide curve: ${tideSourceLabel} (${timeBasisLabel()})`)]),
+    svg("text", { x: left, y: 24, fill: "#17212b", "font-size": 16, "font-weight": 700 }, [document.createTextNode(`24 hour tide curve: ${tideSourceLabel} (${timeBasisLabel()})`)]),
     svg("line", { x1: left, y1: top, x2: left, y2: bottom, stroke: "#9aa8b3" }),
     svg("line", { x1: left, y1: bottom, x2: left + width, y2: bottom, stroke: "#9aa8b3" }),
     svg("path", { d: path, fill: "none", stroke: "#1f6f8b", "stroke-width": 4, "stroke-linecap": "round", "stroke-linejoin": "round" })
@@ -1743,14 +1743,14 @@ function renderTideCurve() {
     const x = xFor(minute);
     target.append(
       svg("line", { x1: x, y1: top, x2: x, y2: bottom, stroke: "#e2e8ee", "stroke-width": 1 }),
-      svg("text", { x: x - 14, y: bottom + 22, fill: "#17212b", "font-size": 13 }, [document.createTextNode(minute === 1440 ? "24:00" : minutesToTime(minute))])
+      svg("text", { x: x - 14, y: bottom + 22, fill: "#17212b", "font-size": 15 }, [document.createTextNode(minute === 1440 ? "24:00" : minutesToTime(minute))])
     );
   });
   [minHeight, maxHeight].forEach((value) => {
     const y = yFor(value);
     target.append(
       svg("line", { x1: left - 5, y1: y, x2: left + width, y2: y, stroke: "#eef2f5", "stroke-width": 1 }),
-      svg("text", { x: 18, y: y + 4, fill: "#17212b", "font-size": 13 }, [document.createTextNode(fmt(value, 1, " m"))])
+      svg("text", { x: 18, y: y + 4, fill: "#17212b", "font-size": 15 }, [document.createTextNode(fmt(value, 1, " m"))])
     );
   });
   visibleEvents
@@ -1759,13 +1759,13 @@ function renderTideCurve() {
       const y = yFor(event.height);
       target.append(
         svg("circle", { cx: x, cy: y, r: 5, fill: event.type === "HW" ? "#1f6f8b" : "#6a8a3a" }),
-        svg("text", { x: x + 7, y: y - 8, fill: "#17212b", "font-size": 13 }, [document.createTextNode(`${event.type} ${minutesToTime(event.minute)} ${fmt(event.height, 1, " m")}`)])
+        svg("text", { x: x + 7, y: y - 8, fill: "#17212b", "font-size": 15 }, [document.createTextNode(`${event.type} ${minutesToTime(event.minute)} ${fmt(event.height, 1, " m")}`)])
       );
     });
   const nowX = xFor(Math.max(0, Math.min(1440, nowMinutes)));
   target.append(
     svg("line", { x1: nowX, y1: top, x2: nowX, y2: bottom, stroke: "#b44444", "stroke-width": 2, "stroke-dasharray": "5 5" }),
-    svg("text", { x: Math.min(nowX + 6, left + width - 42), y: top + 14, fill: "#b44444", "font-size": 13, "font-weight": 700 }, [document.createTextNode("now")])
+    svg("text", { x: Math.min(nowX + 6, left + width - 42), y: top + 14, fill: "#b44444", "font-size": 15, "font-weight": 700 }, [document.createTextNode("now")])
   );
 }
 
