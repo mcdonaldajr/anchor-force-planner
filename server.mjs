@@ -39,6 +39,14 @@ const defaultSecondaryPorts = [
     notes: "HW Oban +0020. LW assumed +0020 until checked."
   },
   {
+    id: "cuan-sound",
+    name: "Cuan Sound",
+    hwOffsets: { t0000: -25, t0600: -25, t1200: -25, t1800: -25 },
+    lwOffsets: { t0000: -25, t0600: -25, t1200: -25, t1800: -25 },
+    heightDiffs: { mhws: -1.3, mhwn: -0.9, mlwn: -0.7, mlws: -0.3 },
+    notes: "Constant -0025 Oban (-0555 Dover). Heights: MHWS 2.7, MHWN 2.0, MLWN 1.1, MLWS 0.4. Stream: flood west +0430 Oban springs/+0515 neaps; ebb east -0145 springs/-0100 neaps; spring rate 7 kn both ways, neap up to 5 kn."
+  },
+  {
     id: "port-ellen",
     name: "Port Ellen",
     hwOffsets: { t0000: -330, t0600: -50, t1200: -330, t1800: -50 },
