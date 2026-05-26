@@ -7,6 +7,7 @@ APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DESKTOP_DIR="${HOME}/Desktop"
 APPLICATIONS_DIR="${HOME}/.local/share/applications"
 DESKTOP_FILE="${APPLICATIONS_DIR}/${APP_ID}.desktop"
+LAUNCHER="${APP_DIR}/scripts/launch-desktop-lubuntu.sh"
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   echo "Node.js and npm are required."
@@ -15,14 +16,14 @@ if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
 fi
 
 mkdir -p "$APPLICATIONS_DIR" "$DESKTOP_DIR"
-chmod +x "${APP_DIR}/scripts/start-lubuntu.sh"
+chmod +x "${APP_DIR}/scripts/start-lubuntu.sh" "$LAUNCHER"
 
 cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
 Name=${APP_NAME}
 Comment=Run the local anchor force planner web app
-Exec=${APP_DIR}/scripts/start-lubuntu.sh --desktop
+Exec=/usr/bin/env bash ${LAUNCHER}
 Icon=${APP_DIR}/assets/anchor-force-planner.svg
 Terminal=false
 Categories=Utility;Education;

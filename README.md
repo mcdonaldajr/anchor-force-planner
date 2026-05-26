@@ -106,6 +106,14 @@ The Lubuntu desktop icon starts the server in the background, opens Firefox to t
 
 The Lubuntu launcher binds to `0.0.0.0`, so other devices on the same Wi-Fi can access it.
 
+If the desktop icon does not appear to do anything, check these logs:
+
+```text
+~/.local/state/anchor-force-planner/desktop-launcher.log
+~/.local/state/anchor-force-planner/launcher.log
+~/.local/state/anchor-force-planner/server.log
+```
+
 ## iPad Access To Lubuntu Server
 
 1. Start the app on Lubuntu with the desktop icon or `./scripts/start-lubuntu.sh`.
@@ -131,7 +139,7 @@ From the app folder:
 ```sh
 git stash push -m "local changes before update"
 git pull
-chmod +x scripts/start-lubuntu.sh scripts/install-lubuntu.sh
+chmod +x scripts/start-lubuntu.sh scripts/launch-desktop-lubuntu.sh scripts/install-lubuntu.sh
 ./scripts/install-lubuntu.sh
 ```
 
