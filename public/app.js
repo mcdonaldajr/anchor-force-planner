@@ -2117,14 +2117,6 @@ document.getElementById("secondaryPortsTable").addEventListener("click", (event)
   }
 });
 
-document.getElementById("stopServer").addEventListener("click", async () => {
-  try {
-    await fetch("/api/stop", { method: "POST" });
-  } finally {
-    document.body.innerHTML = "<main><h1>Anchor Force Planner stopped</h1><p>You can close this tab.</p></main>";
-  }
-});
-
 async function init() {
   applySettings(savedSettings() || {});
   await loadServerState();

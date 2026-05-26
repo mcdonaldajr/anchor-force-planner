@@ -413,7 +413,6 @@
           <div class="secondaryActions">
             <button id="saveDefaults" type="button" title="Save the current planner inputs, boat settings, and display choices as this browser's defaults.">Save settings</button>
             <button id="resetDefaults" type="button" title="Reload the saved browser defaults, or built-in defaults if none have been saved.">Reset settings</button>
-            <button id="stopServer" class="dangerButton" type="button" title="Ask the local Node server to stop. Use the desktop launcher to start it again.">Stop server</button>
           </div>
         </section>
       </section>
@@ -473,6 +472,14 @@
           <div title="Version reported by the local Node server. If this differs from Web version, restart the server."><span>Server version</span><strong id="serverVersion">-</strong></div>
           <div title="Address and port reported by the local server. Use this host and port from an iPad on the same network."><span>Server address</span><strong id="serverAddress">-</strong></div>
           <div title="When the local server process started. If this predates a git pull, restart the server."><span>Server started</span><strong id="serverStarted">-</strong></div>
+        </section>
+        <section class="serviceHelp" aria-label="Server service commands">
+          <h3>Server Control On Lubuntu</h3>
+          <p>Use the desktop Start/Stop icons, or run these user-service commands in a terminal:</p>
+          <code>systemctl --user start anchor-force-planner</code>
+          <code>systemctl --user stop anchor-force-planner</code>
+          <code>systemctl --user status anchor-force-planner</code>
+          <code>journalctl --user -u anchor-force-planner -f</code>
         </section>
       </section>
     </main>

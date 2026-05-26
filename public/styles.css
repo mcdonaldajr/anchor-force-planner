@@ -490,6 +490,32 @@ select {
   font-size: 23px;
 }
 
+.serviceHelp {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 12px;
+  max-width: 720px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.serviceHelp h3,
+.serviceHelp p {
+  margin: 0;
+}
+
+.serviceHelp code {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  background: white;
+  overflow-wrap: anywhere;
+}
+
 .tideSummary {
   display: grid;
   grid-template-columns: repeat(5, minmax(130px, 1fr));
