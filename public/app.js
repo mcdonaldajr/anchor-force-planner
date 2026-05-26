@@ -1,4 +1,4 @@
-const webVersion = "0.5.15";
+const webVersion = "0.5.16";
 const halfCycleMinutes = 12 * 60 + 25;
 
 const defaults = {

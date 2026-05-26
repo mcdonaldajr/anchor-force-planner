@@ -9,7 +9,7 @@ const cacheDir = join(dataDir, "cache");
 const stateFile = join(dataDir, "anchor-force-state.json");
 const port = Number(process.env.PORT || 4184);
 const host = process.env.HOST || "127.0.0.1";
-const serverVersion = "0.5.15";
+const serverVersion = "0.5.16";
 const serverStartedAt = new Date().toISOString();
 
 const obanReferenceLevels = {
@@ -45,6 +45,14 @@ const defaultSecondaryPorts = [
     lwOffsets: { t0000: -25, t0600: -25, t1200: -25, t1800: -25 },
     heightDiffs: { mhws: -1.3, mhwn: -0.9, mlwn: -0.7, mlws: -0.3 },
     notes: "Constant -0025 Oban (-0555 Dover). Heights: MHWS 2.7, MHWN 2.0, MLWN 1.1, MLWS 0.4. Stream: flood west +0430 Oban springs/+0515 neaps; ebb east -0145 springs/-0100 neaps; spring rate 7 kn both ways, neap up to 5 kn."
+  },
+  {
+    id: "sound-of-mull-craignure",
+    name: "Sound of Mull (Craignure)",
+    hwOffsets: { t0000: 15, t0600: 15, t1200: 15, t1800: 15 },
+    lwOffsets: { t0000: 15, t0600: 15, t1200: 15, t1800: 15 },
+    heightDiffs: { mhws: 0.0, mhwn: 0.1, mlwn: -0.1, mlws: -0.1 },
+    notes: "Constant +0015 Oban (-0515 Dover). Heights at Craignure: MHWS 4.0, MHWN 3.0, MLWN 1.7, MLWS 0.6. Stream: north-going -0545 Oban; south-going +0025 Oban; spring rate 3 kn, neap 1 kn."
   },
   {
     id: "port-ellen",
