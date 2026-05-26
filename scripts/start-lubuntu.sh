@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.."
 export HOST="${HOST:-0.0.0.0}"
 export PORT="${PORT:-4184}"
 APP_URL="http://127.0.0.1:${PORT}"
+SERVICE_NAME="anchor-force-planner"
 APP_VERSION="$(node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));process.stdout.write(p.version || '');" 2>/dev/null || true)"
 LOG_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/anchor-force-planner"
 LOG_FILE="${LOG_DIR}/server.log"
@@ -46,39 +47,10 @@ timestamp() {
 }
 
 if [[ "$DESKTOP_MODE" -eq 1 ]]; then
-  mkdir -p "$LOG_DIR"
-  exec >>"$LAUNCH_LOG" 2>&1
-  echo "$(timestamp) launching Anchor Force Planner ${APP_VERSION:-unknown} on ${APP_URL}"
-
-  if server_is_running && ! server_is_current; then
-    echo "$(timestamp) stopping stale server before launch"
-    stop_running_server
-    sleep 0.5
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user start "${SERVICE_NAME}.service"
+    exit 0
   fi
-
-  if ! server_is_running; then
-    echo "$(timestamp) starting server"
-    if command -v setsid >/dev/null 2>&1; then
-      setsid npm start >>"$LOG_FILE" 2>&1 </dev/null &
-    else
-      nohup npm start >>"$LOG_FILE" 2>&1 </dev/null &
-    fi
-  else
-    echo "$(timestamp) server already running"
-  fi
-
-  for _ in {1..40}; do
-    if server_is_running; then
-      echo "$(timestamp) server ready, opening browser"
-      open_browser
-      exit 0
-    fi
-    sleep 0.25
-  done
-
-  open_browser
-  echo "$(timestamp) browser opened before server readiness check succeeded"
-  exit 0
 fi
 
 echo "Starting Anchor Force Planner on port ${PORT}"
@@ -93,4 +65,4 @@ if command -v hostname >/dev/null 2>&1; then
   done
 fi
 
-npm start
+node server.mjs

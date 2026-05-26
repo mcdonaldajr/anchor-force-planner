@@ -87,7 +87,7 @@ sudo apt update
 sudo apt install -y git nodejs npm
 ```
 
-Clone and install the desktop launcher:
+Clone and install the user service and desktop launchers:
 
 ```sh
 git clone https://github.com/mcdonaldajr/anchor-force-planner.git
@@ -96,29 +96,32 @@ chmod +x scripts/install-lubuntu.sh
 ./scripts/install-lubuntu.sh
 ```
 
-Start from the desktop icon, or run:
+Start the server from the desktop icon, or run:
 
 ```sh
-./scripts/start-lubuntu.sh
+systemctl --user start anchor-force-planner
 ```
 
-The Lubuntu desktop icon starts the server in the background, opens Firefox to the app, and does not leave a shell window open.
+Stop the server with:
 
-The Lubuntu launcher binds to `0.0.0.0`, so other devices on the same Wi-Fi can access it.
-
-If the desktop icon does not appear to do anything, check these logs:
-
-```text
-~/.local/state/anchor-force-planner/desktop-launcher.log
-~/.local/state/anchor-force-planner/launcher.log
-~/.local/state/anchor-force-planner/server.log
+```sh
+systemctl --user stop anchor-force-planner
 ```
+
+Check status and logs with:
+
+```sh
+systemctl --user status anchor-force-planner
+journalctl --user -u anchor-force-planner -f
+```
+
+The Lubuntu service binds to `0.0.0.0`, so other devices on the same Wi-Fi can access it. The desktop icons only start and stop the server; they do not launch Firefox. Use a browser bookmark for `http://127.0.0.1:4184`.
 
 ## iPad Access To Lubuntu Server
 
-1. Start the app on Lubuntu with the desktop icon or `./scripts/start-lubuntu.sh`.
+1. Start the server on Lubuntu with the desktop icon or `systemctl --user start anchor-force-planner`.
 2. Keep the iPad and Lubuntu machine on the same Wi-Fi network.
-3. The terminal prints one or more LAN URLs, for example:
+3. Open the Lubuntu machine's LAN URL in Safari, for example:
 
 ```text
 http://192.168.1.42:4184
@@ -141,9 +144,10 @@ git stash push -m "local changes before update"
 git pull
 chmod +x scripts/start-lubuntu.sh scripts/launch-desktop-lubuntu.sh scripts/install-lubuntu.sh
 ./scripts/install-lubuntu.sh
+systemctl --user restart anchor-force-planner
 ```
 
-Then launch from the desktop icon again and check **About**. The web and server versions should match.
+Then open your browser bookmark again and check **About**. The web and server versions should match.
 
 ## Windows Install
 
