@@ -2041,14 +2041,20 @@ document.getElementById("refreshTideData").addEventListener("click", async () =>
         stationName: document.getElementById("tideDataStationName").value.trim(),
         stationId: document.getElementById("tideDataStationId").value.trim(),
         timeStandard: document.getElementById("tideDataTimeStandard").value.trim(),
-        displayTimeMode: document.getElementById("tideDataDisplayMode").value
+        displayTimeMode: document.getElementById("tideDataDisplayMode").value,
+        force: true
       })
     });
     if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || `provider returned ${response.status}`);
     serverState.tideData = await response.json();
     renderTideDataManager();
+    if (serverState.tideData.cache?.offlineFallback || serverState.tideData.cache?.stale) {
+      const reason = serverState.tideData.cache?.fallbackReason ? `\n\nReason: ${serverState.tideData.cache.fallbackReason}` : "";
+      window.alert(`Tide data could not be refreshed from the web. The app is using stored offline tide data instead.${reason}`);
+    }
   } catch (error) {
     document.getElementById("tideDataStatusLabel").textContent = `Fetch failed: ${error.message}`;
+    window.alert(`Tide data could not be refreshed from the web.\n\nReason: ${error.message}`);
   }
 });
 
