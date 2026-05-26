@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 
 const root = process.cwd();
@@ -106,6 +106,33 @@ async function readCache(path) {
   }
 }
 
+function withCacheStatus(payload, status) {
+  return {
+    ...payload,
+    cache: {
+      ...payload.cache,
+      ...status
+    }
+  };
+}
+
+async function readLatestCacheByPrefix(filePrefix) {
+  try {
+    const files = await readdir(cacheDir);
+    const matches = files
+      .filter((file) => file.startsWith(filePrefix) && file.endsWith(".json"))
+      .sort()
+      .reverse();
+    for (const file of matches) {
+      const cached = await readCache(join(cacheDir, file));
+      if (cached) return cached;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 async function readFreshCache(path, maxAgeMs) {
   try {
     const info = await stat(path);
@@ -208,17 +235,24 @@ async function refreshTideData(options = {}) {
     return publicState(state).tideData;
   }
 
+  const latestCached = await readLatestCacheByPrefix(`tides-${stationId}_`);
+
   const apiKey = process.env.UKHO_API_KEY || state.tideData.ukhoApiKey;
   if (!apiKey) {
-    const stale = await readCache(cachePath);
-    if (stale) {
+    if (latestCached) {
+      const stale = withCacheStatus(latestCached, {
+        hit: true,
+        stale: true,
+        offlineFallback: true,
+        fallbackReason: "UKHO_API_KEY is not set; using latest stored tide data"
+      });
       state.tideData = {
         ...state.tideData,
         stationId,
         stationName,
         timeStandard,
         events: stale.events || [],
-        cache: { ...stale.cache, hit: true, stale: true }
+        cache: stale.cache
       };
       await writeState(state);
       return publicState(state).tideData;
@@ -234,33 +268,55 @@ async function refreshTideData(options = {}) {
   ];
   let lastError = "No response";
   for (const path of paths) {
-    const response = await fetch(path, { headers: { "Ocp-Apim-Subscription-Key": apiKey } });
-    if (response.ok) {
-      const payload = {
-        stationId,
-        stationName,
-        timeStandard,
-        events: await response.json(),
-        cache: {
-          hit: false,
-          fetchedAt: new Date().toISOString(),
-          refreshAfter: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          policy: "once per day UKHO tide cache"
-        }
-      };
-      await writeCache(cachePath, payload);
-      state.tideData = {
-        ...state.tideData,
-        stationId,
-        stationName,
-        timeStandard,
-        events: payload.events,
-        cache: payload.cache
-      };
-      await writeState(state);
-      return publicState(state).tideData;
+    try {
+      const response = await fetch(path, { headers: { "Ocp-Apim-Subscription-Key": apiKey } });
+      if (response.ok) {
+        const payload = {
+          stationId,
+          stationName,
+          timeStandard,
+          events: await response.json(),
+          cache: {
+            hit: false,
+            fetchedAt: new Date().toISOString(),
+            refreshAfter: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            policy: "once per day UKHO tide cache"
+          }
+        };
+        await writeCache(cachePath, payload);
+        state.tideData = {
+          ...state.tideData,
+          stationId,
+          stationName,
+          timeStandard,
+          events: payload.events,
+          cache: payload.cache
+        };
+        await writeState(state);
+        return publicState(state).tideData;
+      }
+      lastError = `${response.status} ${response.statusText}`;
+    } catch (error) {
+      lastError = error.message;
     }
-    lastError = `${response.status} ${response.statusText}`;
+  }
+  if (latestCached) {
+    const stale = withCacheStatus(latestCached, {
+      hit: true,
+      stale: true,
+      offlineFallback: true,
+      fallbackReason: lastError
+    });
+    state.tideData = {
+      ...state.tideData,
+      stationId,
+      stationName,
+      timeStandard,
+      events: stale.events || [],
+      cache: stale.cache
+    };
+    await writeState(state);
+    return publicState(state).tideData;
   }
   const error = new Error(lastError);
   error.status = 502;

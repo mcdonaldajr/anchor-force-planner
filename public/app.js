@@ -1168,7 +1168,15 @@ function renderTideDataManager() {
   document.getElementById("tideDataKeyLabel").textContent = tideData.ukhoApiKeySet ? "Set" : "Not set";
   document.getElementById("tideDataFetchedLabel").textContent = fmtDateTime(tideData.cache?.fetchedAt);
   document.getElementById("tideDataCountLabel").textContent = String(events.length);
-  document.getElementById("tideDataStatusLabel").textContent = tideData.cache?.stale ? "Using stale cache" : tideData.cache?.hit ? "Using cache" : tideData.cache?.fetchedAt ? "Fresh fetch" : "No tide data loaded";
+  document.getElementById("tideDataStatusLabel").textContent = tideData.cache?.offlineFallback
+    ? "Using stored offline tide data"
+    : tideData.cache?.stale
+      ? "Using stale cache"
+      : tideData.cache?.hit
+        ? "Using cache"
+        : tideData.cache?.fetchedAt
+          ? "Fresh fetch"
+          : "No tide data loaded";
   const tbody = document.querySelector("#tideDataTable tbody");
   if (!events.length) {
     tbody.innerHTML = `<tr><td colspan="5">No fetched tide events yet.</td></tr>`;

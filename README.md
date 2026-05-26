@@ -16,6 +16,17 @@ The **About** tab shows the web and server version numbers so you can check whet
 
 Tide source, Oban tide entries, selected secondary port, secondary-port correction table, deleted built-in port ids, Tide Data settings, and fetched tide rows are stored on the server in `data/anchor-force-state.json`. Provider cache files live under `data/cache/`.
 
+## Offline Use
+
+The planner and server run locally. Once tide data has been fetched at least once, ordinary use does not require internet.
+
+- Starting the app, changing settings, editing manual tide values, switching tide views, and recalculating anchor loads use local files/browser state only.
+- Fetched UKHO tide events are stored in `data/anchor-force-state.json` and cached under `data/cache/`.
+- If today's tide cache is not available, the server can use the latest stored tide cache for the configured station and marks it as stored offline/stale data.
+- **Refresh tides** requires internet to obtain new UKHO data. If the provider is unreachable but stored data exists, the app keeps using the stored data.
+
+Before going offline, open the app while connected and run **Refresh tides** for the station you plan to use.
+
 ## Model Notes
 
 These calculations are planning estimates, not certified engineering or a substitute for local judgement.
