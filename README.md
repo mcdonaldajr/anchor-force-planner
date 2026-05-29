@@ -151,30 +151,23 @@ Then open your browser bookmark again and check **About**. The web and server ve
 
 ## Windows Install
 
-Install Node.js LTS from:
+Install these first:
 
-```text
-https://nodejs.org/
-```
-
-Install Git for Windows from:
-
-```text
-https://git-scm.com/download/win
-```
+- [Node.js LTS](https://nodejs.org/)
+- [Git for Windows](https://git-scm.com/download/win), unless you download the repository as a ZIP file
 
 Open PowerShell, then run:
 
 ```powershell
 git clone https://github.com/mcdonaldajr/anchor-force-planner.git
 cd anchor-force-planner
-powershell -ExecutionPolicy Bypass -File .\scripts\install-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install-windows.ps1
 ```
 
-Start from the desktop shortcut, or run:
+Start the server:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-windows.ps1
 ```
 
 Then open:
@@ -183,10 +176,48 @@ Then open:
 http://127.0.0.1:4184
 ```
 
-For LAN access from another device on Windows:
+To start the server and open the browser in one step, add `-OpenBrowser`.
+
+Stop the server:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\start-windows.ps1 -Lan
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\stop-windows.ps1
 ```
 
-You may also need to allow TCP port `4184` in Windows Defender Firewall.
+Check whether it is running:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\status-windows.ps1
+```
+
+To create desktop shortcuts for starting and stopping the server:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install-windows.ps1 -CreateDesktopShortcuts
+```
+
+To create shortcuts that start the server in LAN mode, add `-LanShortcuts`.
+
+For LAN access from another device on Windows, start in LAN mode:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-windows.ps1 -Lan
+```
+
+Then open the Windows machine's LAN address from the iPad, for example:
+
+```text
+http://192.168.1.23:4184
+```
+
+Windows Firewall may ask whether to allow Node.js on private networks. Allow it only on trusted private networks.
+
+## Updating On Windows
+
+```powershell
+cd anchor-force-planner
+git pull
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\stop-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-windows.ps1
+```
